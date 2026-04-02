@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -70,7 +70,12 @@ interface PromocaoForm {
   produtos: Produto[];
 }
 
-const CLIENTES = ["MatCon", "Lelei Telhas", "Terraço"];
+interface ClientOption {
+  id: string;
+  name: string;
+  colors: string[];
+}
+
 
 const TIPOS_PRECO = [
   { value: "a-partir-de", label: "A partir de" },
@@ -120,6 +125,31 @@ export default function NovaPromocaoPage() {
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [seloTab, setSeloTab] = useState<number>(0);
+  const [clientes, setClientes] = useState<ClientOption[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+  const [gerandoSelo, setGerandoSelo] = useState(false);
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) throw new Error("Erro ao buscar clientes");
+        const data = await res.json();
+        setClientes(
+          data.map((c: { id: string; name: string; brand_configs?: { colors?: { hex: string }[] }[] }) => ({
+            id: c.id,
+            name: c.name,
+            colors: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || [],
+          }))
+        );
+      } catch {
+        console.error("Erro ao carregar clientes");
+      } finally {
+        setLoadingClientes(false);
+      }
+    }
+    fetchClients();
+  }, []);
 
   const [form, setForm] = useState<PromocaoForm>({
     nome: "",
@@ -200,8 +230,37 @@ export default function NovaPromocaoPage() {
     setForm((prev) => ({ ...prev, seloUrl: null, seloFile: null }));
   };
 
-  const handleGerarSeloIA = () => {
-    alert("Em breve! A geração de selos com IA estará disponível em uma próxima atualização.");
+  const handleGerarSeloIA = async () => {
+    if (!form.seloIaPrompt.trim()) return;
+
+    setGerandoSelo(true);
+    try {
+      const selectedClient = clientes.find((c) => c.id === form.cliente);
+      const colors = selectedClient?.colors || [];
+
+      const res = await fetch("/api/ai/generate-seal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          promotionName: form.seloIaPrompt.trim(),
+          colors,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro ao gerar selo" }));
+        throw new Error(err.error || "Erro ao gerar selo com IA");
+      }
+
+      const blob = await res.blob();
+      const file = new File([blob], "selo-ia.png", { type: "image/png" });
+      const url = URL.createObjectURL(blob);
+      setForm((prev) => ({ ...prev, seloUrl: url, seloFile: file }));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
+    } finally {
+      setGerandoSelo(false);
+    }
   };
 
   // -- Save -----------------------------------------------------------------
@@ -213,10 +272,52 @@ export default function NovaPromocaoPage() {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setSaving(false);
-    alert("Promoção criada com sucesso!");
-    router.push("/promocoes");
+
+    try {
+      const formData = new FormData();
+
+      if (form.seloFile) {
+        formData.append("seal", form.seloFile);
+      }
+
+      const promotionData = {
+        name: form.nome.trim(),
+        start_date: form.dataInicio || null,
+        end_date: form.dataFim || null,
+        subtitle: form.subtema || null,
+        client_id: form.cliente || null,
+        items: form.produtos
+          .filter((p) => p.nome.trim())
+          .map((p) => ({
+            product_name: p.nome.trim(),
+            price_type: p.tipoPreco,
+            price: parseFloat(p.preco) || 0,
+            previous_price: p.precoAnterior ? parseFloat(p.precoAnterior) : null,
+            unit: p.unidade || null,
+            payment_condition: p.formaPagamento || null,
+          })),
+      };
+
+      formData.append("data", JSON.stringify(promotionData));
+
+      const res = await fetch("/api/promotions", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao salvar promoção");
+      }
+
+      router.push("/promocoes");
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Erro ao salvar promoção. Tente novamente."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   // -- Helpers de label -----------------------------------------------------
@@ -347,12 +448,12 @@ export default function NovaPromocaoPage() {
                 onValueChange={(val) => updateField("cliente", val as string)}
               >
                 <SelectTrigger className="mt-1.5 h-[42px] w-full focus-visible:border-orange-500 focus-visible:ring-orange-500/30">
-                  <SelectValue placeholder="Selecione o cliente" />
+                  <SelectValue placeholder={loadingClientes ? "Carregando..." : "Selecione o cliente"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {CLIENTES.map((cliente) => (
-                    <SelectItem key={cliente} value={cliente}>
-                      {cliente}
+                  {clientes.map((cliente) => (
+                    <SelectItem key={cliente.id} value={cliente.id}>
+                      {cliente.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -477,11 +578,20 @@ export default function NovaPromocaoPage() {
                     </div>
                     <Button
                       onClick={handleGerarSeloIA}
-                      disabled={!form.seloIaPrompt.trim()}
+                      disabled={!form.seloIaPrompt.trim() || gerandoSelo}
                       className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white border-0 rounded-xl"
                     >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Gerar Selo
+                      {gerandoSelo ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Gerar Selo
+                        </>
+                      )}
                     </Button>
                   </div>
                 </TabsContent>
@@ -733,7 +843,9 @@ export default function NovaPromocaoPage() {
                 <div className="flex items-center gap-2">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-sm">
-                    {form.cliente || "Nenhum selecionado"}
+                    {form.cliente
+                      ? clientes.find((c) => c.id === form.cliente)?.name || "Nenhum selecionado"
+                      : "Nenhum selecionado"}
                   </span>
                 </div>
               </div>

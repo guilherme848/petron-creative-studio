@@ -213,12 +213,48 @@ export default function NovoClientePage() {
 
     setSaving(true);
 
-    // Simula salvamento (será substituído por Supabase)
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const formData = new FormData();
 
-    setSaving(false);
-    alert("Cliente cadastrado com sucesso!");
-    router.push("/clientes");
+      if (form.logoFile) {
+        formData.append("logo", form.logoFile);
+      }
+
+      const clientData = {
+        name: form.nome.trim(),
+        segment: form.segmento || null,
+        cnpj: form.documento || null,
+        contact: form.contato || null,
+        address: form.endereco || null,
+        whatsapp_link: form.linkWhatsapp || null,
+        colors: form.cores.map((c) => ({ label: c.label, hex: c.hex })),
+        fonts: {
+          title: form.fonteTitulo || null,
+          price: form.fontePreco || null,
+          description: form.fonteDescricao || null,
+        },
+      };
+
+      formData.append("data", JSON.stringify(clientData));
+
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao salvar cliente");
+      }
+
+      router.push("/clientes");
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Erro ao salvar cliente. Tente novamente."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────

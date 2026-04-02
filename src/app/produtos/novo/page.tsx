@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -58,7 +58,10 @@ const CATEGORIAS = [
   "Outros",
 ];
 
-const CLIENTES = ["MatCon", "Lelei Telhas", "Terraço"];
+interface ClientOption {
+  id: string;
+  name: string;
+}
 
 const initialForm: ProdutoForm = {
   nome: "",
@@ -76,6 +79,24 @@ export default function NovoProdutoPage() {
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [clientes, setClientes] = useState<ClientOption[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) throw new Error("Erro ao buscar clientes");
+        const data = await res.json();
+        setClientes(data.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+      } catch {
+        console.error("Erro ao carregar clientes");
+      } finally {
+        setLoadingClientes(false);
+      }
+    }
+    fetchClients();
+  }, []);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -104,10 +125,63 @@ export default function NovoProdutoPage() {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    alert("Produto cadastrado com sucesso!");
-    router.push("/produtos");
+
+    try {
+      const formData = new FormData();
+
+      if (form.imagemFile) {
+        formData.append("image", form.imagemFile);
+      }
+
+      const productData = {
+        name: form.nome.trim(),
+        description: form.descricao || null,
+        category: form.categoria || null,
+        brand: form.marca || null,
+        client_id: form.cliente || null,
+      };
+
+      formData.append("data", JSON.stringify(productData));
+
+      const res = await fetch("/api/products", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao salvar produto");
+      }
+
+      const savedProduct = await res.json();
+
+      // Tentar remover fundo da imagem se houver imagem
+      if (form.imagemFile && savedProduct.image_url) {
+        try {
+          const bgFormData = new FormData();
+          bgFormData.append("image", form.imagemFile);
+
+          const bgRes = await fetch("/api/ai/remove-bg", {
+            method: "POST",
+            body: bgFormData,
+          });
+
+          if (bgRes.ok) {
+            console.log("Fundo removido com sucesso");
+          }
+        } catch {
+          console.warn("Erro ao remover fundo da imagem (continuando)");
+        }
+      }
+
+      router.push("/produtos");
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Erro ao salvar produto. Tente novamente."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -235,12 +309,12 @@ export default function NovoProdutoPage() {
                   }
                 >
                   <SelectTrigger className="h-[42px]">
-                    <SelectValue placeholder="Selecione o cliente" />
+                    <SelectValue placeholder={loadingClientes ? "Carregando..." : "Selecione o cliente"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {CLIENTES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
+                    {clientes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -378,7 +452,7 @@ export default function NovoProdutoPage() {
                   {form.cliente && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                       <Users className="h-3 w-3" />
-                      {form.cliente}
+                      {clientes.find((c) => c.id === form.cliente)?.name || form.cliente}
                     </p>
                   )}
                 </div>

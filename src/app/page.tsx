@@ -1,4 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Users,
   Package,
@@ -12,53 +20,6 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
-
-const stats = [
-  {
-    title: "Clientes",
-    value: "0",
-    description: "cadastrados",
-    icon: Users,
-    href: "/clientes",
-    gradient: "from-[#F97316] to-[#f43f5e]",
-    glow: "shadow-orange-500/20",
-    iconBg: "bg-orange-500/10",
-    iconColor: "text-orange-400",
-  },
-  {
-    title: "Produtos",
-    value: "0",
-    description: "no banco",
-    icon: Package,
-    href: "/produtos",
-    gradient: "from-teal-500 to-emerald-400",
-    glow: "shadow-teal-500/20",
-    iconBg: "bg-teal-500/10",
-    iconColor: "text-teal-400",
-  },
-  {
-    title: "Promoções",
-    value: "0",
-    description: "ativas",
-    icon: Megaphone,
-    href: "/promocoes",
-    gradient: "from-amber-500 to-yellow-400",
-    glow: "shadow-amber-500/20",
-    iconBg: "bg-amber-500/10",
-    iconColor: "text-amber-400",
-  },
-  {
-    title: "Criativos",
-    value: "0",
-    description: "gerados",
-    icon: ImagePlus,
-    href: "/criar",
-    gradient: "from-[#F97316] to-[#f43f5e]",
-    glow: "shadow-orange-500/20",
-    iconBg: "bg-rose-500/10",
-    iconColor: "text-rose-400",
-  },
-];
 
 const steps = [
   {
@@ -82,7 +43,8 @@ const steps = [
   {
     number: "03",
     title: "Crie a promoção",
-    description: "Defina tipo, periodo e gere selo 3D com inteligência artificial",
+    description:
+      "Defina tipo, periodo e gere selo 3D com inteligência artificial",
     icon: Palette,
     color: "text-amber-400",
     borderColor: "border-amber-500/20",
@@ -99,7 +61,104 @@ const steps = [
   },
 ];
 
+interface StatItem {
+  title: string;
+  value: string;
+  description: string;
+  icon: typeof Users;
+  href: string;
+  gradient: string;
+  glow: string;
+  iconBg: string;
+  iconColor: string;
+}
+
 export default function DashboardPage() {
+  const [counts, setCounts] = useState({
+    clients: 0,
+    products: 0,
+    promotions: 0,
+    creatives: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const [clientsRes, productsRes, promotionsRes] = await Promise.all([
+          fetch("/api/clients"),
+          fetch("/api/products"),
+          fetch("/api/promotions"),
+        ]);
+
+        const [clientsData, productsData, promotionsData] = await Promise.all([
+          clientsRes.ok ? clientsRes.json() : [],
+          productsRes.ok ? productsRes.json() : [],
+          promotionsRes.ok ? promotionsRes.json() : [],
+        ]);
+
+        setCounts({
+          clients: Array.isArray(clientsData) ? clientsData.length : 0,
+          products: Array.isArray(productsData) ? productsData.length : 0,
+          promotions: Array.isArray(promotionsData) ? promotionsData.length : 0,
+          creatives: 0,
+        });
+      } catch {
+        console.error("Erro ao buscar contadores");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCounts();
+  }, []);
+
+  const stats: StatItem[] = [
+    {
+      title: "Clientes",
+      value: loading ? "..." : String(counts.clients),
+      description: "cadastrados",
+      icon: Users,
+      href: "/clientes",
+      gradient: "from-[#F97316] to-[#f43f5e]",
+      glow: "shadow-orange-500/20",
+      iconBg: "bg-orange-500/10",
+      iconColor: "text-orange-400",
+    },
+    {
+      title: "Produtos",
+      value: loading ? "..." : String(counts.products),
+      description: "no banco",
+      icon: Package,
+      href: "/produtos",
+      gradient: "from-teal-500 to-emerald-400",
+      glow: "shadow-teal-500/20",
+      iconBg: "bg-teal-500/10",
+      iconColor: "text-teal-400",
+    },
+    {
+      title: "Promoções",
+      value: loading ? "..." : String(counts.promotions),
+      description: "ativas",
+      icon: Megaphone,
+      href: "/promocoes",
+      gradient: "from-amber-500 to-yellow-400",
+      glow: "shadow-amber-500/20",
+      iconBg: "bg-amber-500/10",
+      iconColor: "text-amber-400",
+    },
+    {
+      title: "Criativos",
+      value: loading ? "..." : String(counts.creatives),
+      description: "gerados",
+      icon: ImagePlus,
+      href: "/criar",
+      gradient: "from-[#F97316] to-[#f43f5e]",
+      glow: "shadow-orange-500/20",
+      iconBg: "bg-rose-500/10",
+      iconColor: "text-rose-400",
+    },
+  ];
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
@@ -122,7 +181,8 @@ export default function DashboardPage() {
           </h2>
           <p className="text-muted-foreground max-w-lg text-sm leading-relaxed">
             Gere criativos profissionais para Meta Ads em menos de 5 minutos.
-            Potencializado por inteligência artificial para lojas de materiais de construção.
+            Potencializado por inteligência artificial para lojas de materiais de
+            construção.
           </p>
         </div>
       </div>
@@ -132,7 +192,9 @@ export default function DashboardPage() {
         {stats.map((stat) => (
           <Link key={stat.href} href={stat.href}>
             <Card className="group relative overflow-hidden cursor-pointer border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl p-5">
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-[0.03]`} />
+              <div
+                className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-[0.03]`}
+              />
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="label-upper text-muted-foreground">
                   {stat.title}
@@ -158,7 +220,9 @@ export default function DashboardPage() {
       {/* How to start - Stepper */}
       <div>
         <div className="flex items-center gap-2 mb-5">
-          <h3 className="text-lg font-semibold tracking-tight">Como começar</h3>
+          <h3 className="text-lg font-semibold tracking-tight">
+            Como começar
+          </h3>
           <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
         </div>
 
@@ -170,12 +234,16 @@ export default function DashboardPage() {
             >
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-start gap-4">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${step.bg} border ${step.borderColor}`}>
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${step.bg} border ${step.borderColor}`}
+                  >
                     <step.icon className={`h-4.5 w-4.5 ${step.color}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-bold tracking-wider ${step.color} opacity-60`}>
+                      <span
+                        className={`text-[10px] font-bold tracking-wider ${step.color} opacity-60`}
+                      >
                         PASSO {step.number}
                       </span>
                     </div>
@@ -196,7 +264,9 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <div>
         <div className="flex items-center gap-2 mb-5">
-          <h3 className="text-lg font-semibold tracking-tight">Atividade recente</h3>
+          <h3 className="text-lg font-semibold tracking-tight">
+            Atividade recente
+          </h3>
           <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
         </div>
 
@@ -212,7 +282,8 @@ export default function DashboardPage() {
               Nenhuma atividade ainda
             </h4>
             <p className="text-xs text-muted-foreground text-center max-w-sm">
-              Comece cadastrando um cliente para ver sua atividade aqui. Cada criativo gerado aparecerá nesta timeline.
+              Comece cadastrando um cliente para ver sua atividade aqui. Cada
+              criativo gerado aparecerá nesta timeline.
             </p>
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -40,25 +40,22 @@ import {
   Check,
 } from "lucide-react";
 
-// -- Mock Data ----------------------------------------------------------------
+// -- Types for fetched data ---------------------------------------------------
 
-const CLIENTES = [
-  {
-    id: "matcon",
-    nome: "MatCon",
-    cores: ["#E53935", "#FFFFFF", "#333333"],
-  },
-  {
-    id: "lelei",
-    nome: "Lelei Telhas",
-    cores: ["#D32F2F", "#FFFFFF", "#212121"],
-  },
-  {
-    id: "terraco",
-    nome: "Terraço",
-    cores: ["#1565C0", "#FFFFFF", "#0D47A1"],
-  },
-];
+interface ClienteAPI {
+  id: string;
+  nome: string;
+  logoUrl: string | null;
+  cores: string[];
+}
+
+interface ProdutoAPI {
+  id: string;
+  name: string;
+  image_url: string | null;
+  image_treated_url: string | null;
+  category: string | null;
+}
 
 const TIPOS_PRECO = [
   { value: "a-partir-de", label: "A PARTIR DE" },
@@ -111,6 +108,38 @@ const STEPS = [
 
 export default function CriarPage() {
   const [step, setStep] = useState(1);
+  const [clientes, setClientes] = useState<ClienteAPI[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(true);
+  const [produtosCliente, setProdutosCliente] = useState<ProdutoAPI[]>([]);
+  const [loadingProdutos, setLoadingProdutos] = useState(false);
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) throw new Error("Erro ao buscar clientes");
+        const data = await res.json();
+        setClientes(
+          data.map((c: {
+            id: string;
+            name: string;
+            brand_configs?: { logo_url?: string | null; colors?: { hex: string }[] }[];
+          }) => ({
+            id: c.id,
+            nome: c.name,
+            logoUrl: c.brand_configs?.[0]?.logo_url || null,
+            cores: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || ["#F97316", "#FFFFFF", "#333333"],
+          }))
+        );
+      } catch {
+        console.error("Erro ao carregar clientes");
+      } finally {
+        setLoadingClientes(false);
+      }
+    }
+    fetchClients();
+  }, []);
+
   const [state, setState] = useState<CreativeState>({
     clienteId: "",
     promocaoNome: "",
@@ -135,7 +164,27 @@ export default function CriarPage() {
   const [seloDrag, setSeloDrag] = useState(false);
   const [produtoDrag, setProdutoDrag] = useState(false);
 
-  const cliente = CLIENTES.find((c) => c.id === state.clienteId);
+  const cliente = clientes.find((c) => c.id === state.clienteId);
+
+  // Buscar produtos do cliente selecionado ao mudar de step para 3
+  useEffect(() => {
+    if (step === 3 && state.clienteId) {
+      async function fetchProducts() {
+        setLoadingProdutos(true);
+        try {
+          const res = await fetch(`/api/products?client_id=${state.clienteId}`);
+          if (!res.ok) throw new Error("Erro ao buscar produtos");
+          const data = await res.json();
+          setProdutosCliente(data);
+        } catch {
+          console.error("Erro ao carregar produtos do cliente");
+        } finally {
+          setLoadingProdutos(false);
+        }
+      }
+      fetchProducts();
+    }
+  }, [step, state.clienteId]);
 
   const update = (partial: Partial<CreativeState>) =>
     setState((prev) => ({ ...prev, ...partial }));
@@ -244,43 +293,74 @@ export default function CriarPage() {
                 <p className="text-sm text-muted-foreground">
                   Escolha o cliente para aplicar a identidade visual no criativo.
                 </p>
-                <div className="grid gap-3">
-                  {CLIENTES.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => update({ clienteId: c.id })}
-                      className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
-                        state.clienteId === c.id
-                          ? "border-orange-500 bg-orange-500/5 shadow-sm"
-                          : "border-border/50 hover:border-orange-500/30 hover:bg-card/60"
-                      }`}
-                    >
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-xl text-white font-bold text-sm"
-                        style={{ backgroundColor: c.cores[0] }}
+                {loadingClientes ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-4 rounded-xl border border-border/50 p-4 animate-pulse">
+                        <div className="h-12 w-12 rounded-xl bg-muted/50" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-24 rounded bg-muted/50" />
+                          <div className="flex gap-1">
+                            <div className="h-4 w-4 rounded-full bg-muted/40" />
+                            <div className="h-4 w-4 rounded-full bg-muted/40" />
+                            <div className="h-4 w-4 rounded-full bg-muted/40" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : clientes.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum cliente cadastrado. Cadastre um cliente primeiro.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {clientes.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => update({ clienteId: c.id })}
+                        className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
+                          state.clienteId === c.id
+                            ? "border-orange-500 bg-orange-500/5 shadow-sm"
+                            : "border-border/50 hover:border-orange-500/30 hover:bg-card/60"
+                        }`}
                       >
-                        {c.nome.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold">{c.nome}</h4>
-                        <div className="flex gap-1 mt-1.5">
-                          {c.cores.map((cor, i) => (
-                            <div
-                              key={i}
-                              className="h-4 w-4 rounded-full border border-border/50"
-                              style={{ backgroundColor: cor }}
-                            />
-                          ))}
+                        {c.logoUrl ? (
+                          <div className="h-12 w-12 rounded-xl border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-1">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={c.logoUrl} alt={c.nome} className="max-h-full max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div
+                            className="flex h-12 w-12 items-center justify-center rounded-xl text-white font-bold text-sm"
+                            style={{ backgroundColor: c.cores[0] }}
+                          >
+                            {c.nome.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold">{c.nome}</h4>
+                          <div className="flex gap-1 mt-1.5">
+                            {c.cores.map((cor, i) => (
+                              <div
+                                key={i}
+                                className="h-4 w-4 rounded-full border border-border/50"
+                                style={{ backgroundColor: cor }}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                      {state.clienteId === c.id && (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white">
-                          <Check className="h-3.5 w-3.5" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        {state.clienteId === c.id && (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white">
+                            <Check className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
