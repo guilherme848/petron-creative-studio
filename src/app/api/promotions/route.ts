@@ -77,6 +77,20 @@ export async function POST(request: Request) {
 
     const promotionData = JSON.parse(promotionDataRaw);
 
+    if (!promotionData.name || !promotionData.name.trim()) {
+      return NextResponse.json(
+        { error: "O nome da promoção é obrigatório" },
+        { status: 400 }
+      );
+    }
+
+    if (!promotionData.client_id) {
+      return NextResponse.json(
+        { error: "O cliente é obrigatório" },
+        { status: 400 }
+      );
+    }
+
     let sealUrl: string | null = null;
 
     if (sealFile) {
@@ -151,6 +165,8 @@ export async function POST(request: Request) {
         .select();
 
       if (itemsError) {
+        // Rollback: deletar a promoção criada
+        await supabase.from("promotions").delete().eq("id", promotion.id);
         return NextResponse.json(
           { error: `Promotion items creation failed: ${itemsError.message}` },
           { status: 500 }
@@ -163,6 +179,139 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { ...promotion, promotion_items: promotionItems },
       { status: 201 }
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const formData = await request.formData();
+
+    const sealFile = formData.get("seal") as File | null;
+    const promotionDataRaw = formData.get("data") as string | null;
+
+    if (!promotionDataRaw) {
+      return NextResponse.json(
+        { error: "Missing promotion data" },
+        { status: 400 }
+      );
+    }
+
+    const promotionData = JSON.parse(promotionDataRaw);
+
+    if (!promotionData.id) {
+      return NextResponse.json(
+        { error: "Missing promotion id" },
+        { status: 400 }
+      );
+    }
+
+    if (!promotionData.name || !promotionData.name.trim()) {
+      return NextResponse.json(
+        { error: "O nome da promoção é obrigatório" },
+        { status: 400 }
+      );
+    }
+
+    let sealUrl: string | undefined = undefined;
+
+    if (sealFile) {
+      const fileName = generateUniqueName(sealFile.name);
+      const arrayBuffer = await sealFile.arrayBuffer();
+      const buffer = new Uint8Array(arrayBuffer);
+
+      const { error: uploadError } = await supabase.storage
+        .from("seals")
+        .upload(fileName, buffer, {
+          contentType: sealFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return NextResponse.json(
+          { error: `Seal upload failed: ${uploadError.message}` },
+          { status: 500 }
+        );
+      }
+
+      sealUrl = `${SUPABASE_URL}/storage/v1/object/public/seals/${fileName}`;
+    }
+
+    // Update promotion
+    const updateData: Record<string, unknown> = {
+      client_id: promotionData.client_id || null,
+      name: promotionData.name,
+      start_date: promotionData.start_date || null,
+      end_date: promotionData.end_date || null,
+      subtitle: promotionData.subtitle || null,
+    };
+
+    if (sealUrl !== undefined) {
+      updateData.seal_url = sealUrl;
+    }
+
+    const { data: promotion, error: promotionError } = await supabase
+      .from("promotions")
+      .update(updateData)
+      .eq("id", promotionData.id)
+      .select()
+      .single();
+
+    if (promotionError) {
+      return NextResponse.json(
+        { error: `Promotion update failed: ${promotionError.message}` },
+        { status: 500 }
+      );
+    }
+
+    // Deletar items antigos e inserir novos
+    await supabase.from("promotion_items").delete().eq("promotion_id", promotionData.id);
+
+    let promotionItems: unknown[] = [];
+
+    if (promotionData.items && Array.isArray(promotionData.items) && promotionData.items.length > 0) {
+      const itemsToInsert = promotionData.items.map(
+        (item: {
+          product_name: string;
+          price_type: string;
+          price: number;
+          previous_price?: number;
+          unit?: string;
+          payment_condition?: string;
+        }) => ({
+          promotion_id: promotion.id,
+          product_name: item.product_name,
+          price_type: item.price_type,
+          price: item.price,
+          previous_price: item.previous_price || null,
+          unit: item.unit || null,
+          payment_condition: item.payment_condition || null,
+        })
+      );
+
+      const { data: items, error: itemsError } = await supabase
+        .from("promotion_items")
+        .insert(itemsToInsert)
+        .select();
+
+      if (itemsError) {
+        return NextResponse.json(
+          { error: `Promotion items update failed: ${itemsError.message}` },
+          { status: 500 }
+        );
+      }
+
+      promotionItems = items || [];
+    }
+
+    return NextResponse.json(
+      { ...promotion, promotion_items: promotionItems },
+      { status: 200 }
     );
   } catch (err) {
     return NextResponse.json(

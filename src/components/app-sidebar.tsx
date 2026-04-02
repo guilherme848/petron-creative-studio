@@ -122,15 +122,15 @@ export function AppSidebar() {
         <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-sidebar-accent/40 cursor-pointer">
           <Avatar className="h-8 w-8 border border-sidebar-border">
             <AvatarFallback className="bg-gradient-to-br from-orange-500/20 to-rose-500/20 text-orange-400 text-xs font-semibold">
-              GR
+              PC
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-xs font-semibold text-sidebar-foreground truncate">
-              Guilherme Rosso
+              Petron
             </span>
             <span className="text-[10px] text-muted-foreground truncate">
-              Admin
+              Creative Studio
             </span>
           </div>
         </div>

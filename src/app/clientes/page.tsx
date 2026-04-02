@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -33,6 +34,7 @@ interface Client {
 }
 
 export default function ClientesPage() {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +170,7 @@ export default function ClientesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" sideOffset={4}>
                         <DropdownMenuItem
-                          onClick={() => alert("Em breve")}
+                          onClick={() => router.push(`/clientes/${client.id}`)}
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar

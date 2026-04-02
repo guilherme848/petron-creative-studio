@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Limite de requisições excedido. Tente novamente em 1 minuto." },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { promotionName, colors } = body as {

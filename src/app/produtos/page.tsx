@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ interface Product {
 }
 
 export default function ProdutosPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +121,7 @@ export default function ProdutosPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" sideOffset={4}>
                     <DropdownMenuItem
-                      onClick={() => alert("Em breve")}
+                      onClick={() => router.push(`/produtos/${product.id}`)}
                     >
                       <Pencil className="mr-2 h-4 w-4" />
                       Editar
