@@ -38,6 +38,7 @@ import {
   Sparkles,
   Eye,
   Check,
+  Loader2,
 } from "lucide-react";
 
 // -- Types for fetched data ---------------------------------------------------
@@ -163,6 +164,8 @@ export default function CriarPage() {
   const produtoInputRef = useRef<HTMLInputElement>(null);
   const [seloDrag, setSeloDrag] = useState(false);
   const [produtoDrag, setProdutoDrag] = useState(false);
+  const [gerandoSelo, setGerandoSelo] = useState(false);
+  const [seloPrompt, setSeloPrompt] = useState("");
 
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
@@ -188,6 +191,34 @@ export default function CriarPage() {
 
   const update = (partial: Partial<CreativeState>) =>
     setState((prev) => ({ ...prev, ...partial }));
+
+  const handleGerarSeloIA = async () => {
+    const promptText = seloPrompt.trim() || state.promocaoNome.trim();
+    if (!promptText) return;
+
+    setGerandoSelo(true);
+    try {
+      const colors = cliente?.cores || ["#F97316", "#FFFFFF"];
+      const res = await fetch("/api/ai/generate-seal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promotionName: promptText, colors }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao gerar selo");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      update({ seloUrl: url });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
+    } finally {
+      setGerandoSelo(false);
+    }
+  };
 
   const handleFileUpload = useCallback(
     (field: "seloUrl" | "produtoFotoUrl", fileField: "seloFile" | "produtoFotoFile") =>
@@ -465,14 +496,39 @@ export default function CriarPage() {
                       )}
                     </TabsContent>
                     <TabsContent value="ia" className="mt-3">
-                      <div className="rounded-xl border border-border/50 p-4 text-center">
-                        <Sparkles className="h-6 w-6 text-orange-500 mx-auto mb-2" />
-                        <p className="text-sm font-medium mb-1">
-                          Geração com IA
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Em breve — integração com Google Gemini
-                        </p>
+                      <div className="space-y-3">
+                        <Input
+                          placeholder={state.promocaoNome || "Descreva o selo — Ex: Queima de Estoque com efeito de fogo"}
+                          className="h-[42px]"
+                          value={seloPrompt}
+                          onChange={(e) => setSeloPrompt(e.target.value)}
+                        />
+                        <Button
+                          onClick={handleGerarSeloIA}
+                          disabled={gerandoSelo || (!seloPrompt.trim() && !state.promocaoNome.trim())}
+                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                        >
+                          {gerandoSelo ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Gerando selo...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Gerar Selo com IA
+                            </>
+                          )}
+                        </Button>
+                        {state.seloUrl && (
+                          <div className="relative group">
+                            <img
+                              src={state.seloUrl}
+                              alt="Selo gerado"
+                              className="max-h-32 mx-auto object-contain"
+                            />
+                          </div>
+                        )}
                       </div>
                     </TabsContent>
                   </Tabs>

@@ -16,10 +16,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY not configured" },
+        { error: "GOOGLE_GEMINI_API_KEY not configured" },
         { status: 500 }
       );
     }
