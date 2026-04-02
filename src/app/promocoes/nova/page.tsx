@@ -45,6 +45,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 // -- Types ------------------------------------------------------------------
 
@@ -199,7 +200,7 @@ export default function NovaPromocaoPage() {
 
   const handleSeloFile = useCallback((file: File) => {
     if (file.type !== "image/png") {
-      alert("Use apenas arquivos PNG com fundo transparente.");
+      toast.error("Use apenas arquivos PNG com fundo transparente.");
       return;
     }
 
@@ -257,7 +258,7 @@ export default function NovaPromocaoPage() {
       const url = URL.createObjectURL(blob);
       setForm((prev) => ({ ...prev, seloUrl: url, seloFile: file }));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
     } finally {
       setGerandoSelo(false);
     }
@@ -267,7 +268,7 @@ export default function NovaPromocaoPage() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) {
-      alert("O nome da promoção é obrigatório.");
+      toast.error("O nome da promoção é obrigatório.");
       return;
     }
 
@@ -312,7 +313,7 @@ export default function NovaPromocaoPage() {
 
       router.push("/promocoes");
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "Erro ao salvar promoção. Tente novamente."
       );
     } finally {

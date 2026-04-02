@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -47,6 +48,7 @@ export default function RootLayout({
             </div>
           </SidebarProvider>
         </TooltipProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

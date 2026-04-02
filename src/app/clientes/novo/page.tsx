@@ -27,6 +27,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ export default function NovoClientePage() {
     (file: File) => {
       const validTypes = ["image/png", "image/jpeg", "image/svg+xml"];
       if (!validTypes.includes(file.type)) {
-        alert("Formato não suportado. Use PNG, JPG ou SVG.");
+        toast.error("Formato não suportado. Use PNG, JPG ou SVG.");
         return;
       }
 
@@ -207,7 +208,7 @@ export default function NovoClientePage() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) {
-      alert("O nome da empresa é obrigatório.");
+      toast.error("O nome da empresa é obrigatório.");
       return;
     }
 
@@ -249,7 +250,7 @@ export default function NovoClientePage() {
 
       router.push("/clientes");
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "Erro ao salvar cliente. Tente novamente."
       );
     } finally {

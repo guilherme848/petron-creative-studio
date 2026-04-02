@@ -33,6 +33,8 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { CATEGORIAS_PRODUTO } from "@/lib/constants";
 
 interface ProdutoForm {
   nome: string;
@@ -43,20 +45,6 @@ interface ProdutoForm {
   imagemUrl: string | null;
   imagemFile: File | null;
 }
-
-const CATEGORIAS = [
-  "Pisos",
-  "Azulejos",
-  "Porcelanato",
-  "Tintas",
-  "Portas",
-  "Forro PVC",
-  "Telhas",
-  "Hidráulica",
-  "Elétrica",
-  "Ferramentas",
-  "Outros",
-];
 
 interface ClientOption {
   id: string;
@@ -121,7 +109,7 @@ export default function NovoProdutoPage() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) {
-      alert("O nome do produto é obrigatório.");
+      toast.error("O nome do produto é obrigatório.");
       return;
     }
     setSaving(true);
@@ -176,7 +164,7 @@ export default function NovoProdutoPage() {
 
       router.push("/produtos");
     } catch (err) {
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "Erro ao salvar produto. Tente novamente."
       );
     } finally {
@@ -264,7 +252,7 @@ export default function NovoProdutoPage() {
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIAS.map((cat) => (
+                      {CATEGORIAS_PRODUTO.map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>

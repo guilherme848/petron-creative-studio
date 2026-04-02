@@ -40,6 +40,8 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO } from "@/lib/constants";
 
 // -- Types for fetched data ---------------------------------------------------
 
@@ -57,20 +59,6 @@ interface ProdutoAPI {
   image_treated_url: string | null;
   category: string | null;
 }
-
-const TIPOS_PRECO = [
-  { value: "a-partir-de", label: "A PARTIR DE" },
-  { value: "por-apenas", label: "POR APENAS" },
-  { value: "de-por", label: "DE/POR" },
-];
-
-const UNIDADES = ["M²", "UND", "Metro", "Caixa"];
-const CONDICOES = ["À vista", "PIX", "Débito", "Dinheiro"];
-const FORMATOS = [
-  { value: "1080x1080", label: "Feed (1080×1080)" },
-  { value: "1080x1350", label: "Feed (1080×1350)" },
-  { value: "1080x1920", label: "Stories (1080×1920)" },
-];
 
 // -- Types --------------------------------------------------------------------
 
@@ -214,7 +202,7 @@ export default function CriarPage() {
       const url = URL.createObjectURL(blob);
       update({ seloUrl: url });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar selo com IA");
     } finally {
       setGerandoSelo(false);
     }
@@ -693,7 +681,7 @@ export default function CriarPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {CONDICOES.map((c) => (
+                        {FORMAS_PAGAMENTO.map((c) => (
                           <SelectItem key={c} value={c}>
                             {c}
                           </SelectItem>
@@ -780,7 +768,7 @@ export default function CriarPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {FORMATOS.map((f) => (
+                      {FORMATOS_EXPORTACAO.map((f) => (
                         <SelectItem key={f.value} value={f.value}>
                           {f.label}
                         </SelectItem>
@@ -792,7 +780,7 @@ export default function CriarPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Button
                     className="h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                    onClick={() => alert("Exportação em PNG disponível em breve!")}
+                    onClick={() => toast.info("Exportação em PNG disponível em breve!")}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Baixar PNG
@@ -800,7 +788,7 @@ export default function CriarPage() {
                   <Button
                     variant="outline"
                     className="h-12 btn-micro"
-                    onClick={() => alert("Exportação em JPG disponível em breve!")}
+                    onClick={() => toast.info("Exportação em JPG disponível em breve!")}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Baixar JPG
