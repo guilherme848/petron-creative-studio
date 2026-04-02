@@ -32,6 +32,7 @@ export async function POST(request: Request) {
       startDate,
       endDate,
       format,
+      cta,
       clientId,
       promotionId,
     } = JSON.parse(dataRaw);
@@ -93,32 +94,61 @@ export async function POST(request: Request) {
       });
     }
 
+    // CTA text
+    const ctaText = cta || "Clique e fale conosco";
+
     // Montar prompt
     let imageInstructions = "";
     if (logoFile && productImageFile) {
-      imageInstructions = `I provided 2 images above: 1) The store LOGO 2) The PRODUCT PHOTO. CRITICAL: Use MY EXACT LOGO from image 1 - do not recreate or modify it. Use the EXACT PRODUCT from image 2 - show it large with realistic shadow.`;
+      imageInstructions = `I provided 2 images: IMAGE 1 is the store LOGO. IMAGE 2 is the REAL PRODUCT PHOTO.
+CRITICAL RULES FOR IMAGES:
+- Use MY EXACT LOGO from image 1 without any modification, recreation or reinterpretation
+- Use the EXACT PRODUCT from image 2 as the main product visual, displayed large with realistic shadow
+- Do NOT generate a different logo or product - use EXACTLY what I provided`;
     } else if (logoFile) {
-      imageInstructions = `I provided the store LOGO above. CRITICAL: Use MY EXACT LOGO - do not recreate or modify it.`;
+      imageInstructions = `I provided the store LOGO image. CRITICAL: Use MY EXACT LOGO without modification.`;
     } else if (productImageFile) {
-      imageInstructions = `I provided the PRODUCT PHOTO above. CRITICAL: Use this EXACT PRODUCT image - show it large with shadow.`;
+      imageInstructions = `I provided the REAL PRODUCT PHOTO. CRITICAL: Use this EXACT PRODUCT image large with shadow.`;
     }
 
     const prompt = `${imageInstructions}
 
-Create a professional Brazilian retail promotional poster (${isVertical ? "vertical 1080x1350" : "square 1080x1080"} format) for a building materials store called ${clientName}.
+Create a premium Brazilian retail promotional poster for a building materials store.
+Format: ${isVertical ? "vertical 1080x1350" : "square 1080x1080"}.
 
-ALL TEXT MUST BE IN BRAZILIAN PORTUGUESE, CORRECT AND LEGIBLE:
+MANDATORY TEXT RULES:
+- ALL text in Brazilian Portuguese with correct accents
+- For prices: use a small "R$" prefix followed by the number. Example: R$ 34,90
+- NEVER use cent symbols (¢), euro (€), dollar ($), or ANY other currency symbol next to the numbers
+- Use COMMA as decimal separator (Brazilian format): 34,90 NOT 34.90
+- Every text must be fully spelled, complete, and legible
 
-1) TOP: Spectacular 3D metallic chrome text "${promotionName}" with ${primaryColor} accents, floating confetti and ribbons, dramatic lighting
-2) BELOW: ${logoFile ? "MY EXACT LOGO as provided" : `Store name ${clientName} in a badge`}
-3) LEFT SIDE: "${productName}" in heavy bold black uppercase${productSpec ? `, "${productSpec}" in gray below` : ""}
-4) ${priceBlock}
-5) RIGHT SIDE: ${productImageFile ? "MY EXACT PRODUCT PHOTO as provided, displayed LARGE (40% width) with realistic shadow" : `A large realistic ${productName} product image with shadow`}
-6) ${validityBlock || `Footer: ${primaryColor} bar with IMAGEM MERAMENTE ILUSTRATIVA`}
+LAYOUT AND CONTENT:
 
-BACKGROUND: Rich ${primaryColor} gradient top with 3D geometric angular shapes, clean white bottom, dramatic diagonal split. Floating metallic confetti and ribbons.
+TOP ZONE: Spectacular 3D promotional seal with the text "${promotionName}" in bold extruded metallic chrome letters with ${primaryColor} color accents. Dramatic studio lighting, floating confetti and metallic ribbons around it. Photorealistic 3D quality.
 
-STYLE: Premium Brazilian retail advertising. Ultra high quality. Bold, vibrant, commercial.`;
+LOGO ZONE: ${logoFile ? "My EXACT logo (from the provided image) displayed clearly" : `Store name "${clientName}" in a professional badge`}
+
+PRODUCT INFO (left side of body):
+- "${productName}" in heavy bold black uppercase letters
+${productSpec ? `- "${productSpec}" in medium gray below the product name` : ""}
+- ${priceBlock}
+
+PRODUCT IMAGE (right side, LARGE - 35-40% of poster width):
+${productImageFile ? "The EXACT product photo I provided, displayed prominently with realistic drop shadow and slight perspective" : `A photorealistic ${productName} with shadow`}
+
+CTA BUTTON: A bright green WhatsApp-style rounded button with bold white text: "${ctaText}". Positioned below the product area.
+
+FOOTER: ${validityBlock ? `A ${primaryColor} colored bar with white text: ${validityBlock}` : `Small text: IMAGEM MERAMENTE ILUSTRATIVA`}
+
+BACKGROUND DESIGN:
+- Create a visually harmonious background that complements the brand color ${primaryColor}
+- Use creative composition: diagonal splits, gradients, geometric shapes, or contextual textures
+- The background should feel premium and professional, not flat or generic
+- Upper section in brand color, lower section lighter/white for product info readability
+- Add floating decorative 3D elements (confetti, ribbons, geometric shapes) for energy
+
+STYLE: Premium Brazilian retail advertising for building materials stores (like Leroy Merlin, C&C promotional flyers). Ultra high quality, bold, vibrant, commercial. The design should look like it was made by a professional graphic designer.`;
 
     parts.push({ text: prompt });
 

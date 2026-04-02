@@ -81,6 +81,7 @@ interface CreativeState {
   precoAnterior: string;
   unidade: string;
   condicao: string;
+  cta: string;
   // Step 5
   formato: string;
 }
@@ -145,6 +146,7 @@ export default function CriarPage() {
     precoAnterior: "",
     unidade: "M²",
     condicao: "À vista",
+    cta: "Clique e fale conosco",
     formato: "1080x1080",
   });
 
@@ -254,6 +256,7 @@ export default function CriarPage() {
         startDate: state.dataInicio || undefined,
         endDate: state.dataFim || undefined,
         format: state.formato,
+        cta: state.cta || "Clique e fale conosco",
         clientId: state.clienteId || undefined,
       };
 
@@ -809,6 +812,30 @@ export default function CriarPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <Separator />
+
+                {/* CTA */}
+                <div className="space-y-2">
+                  <Label>Texto do botão (CTA)</Label>
+                  <Select
+                    value={state.cta}
+                    onValueChange={(val) => update({ cta: val ?? "" })}
+                  >
+                    <SelectTrigger className="h-[42px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Clique e fale conosco">Clique e fale conosco</SelectItem>
+                      <SelectItem value="Clique e faça seu orçamento">Clique e faça seu orçamento</SelectItem>
+                      <SelectItem value="Fale conosco pelo WhatsApp">Fale conosco pelo WhatsApp</SelectItem>
+                      <SelectItem value="Peça já seu orçamento">Peça já seu orçamento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    Botão verde estilo WhatsApp no rodapé do criativo.
+                  </p>
                 </div>
               </CardContent>
             </Card>
