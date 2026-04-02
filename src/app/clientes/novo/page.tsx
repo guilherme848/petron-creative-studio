@@ -309,7 +309,7 @@ export default function NovoClientePage() {
                   </Label>
                   <Input
                     id="nome"
-                    placeholder="Ex: Padaria do João"
+                    placeholder="Ex: Lelei Telhas Materiais de Construção"
                     value={form.nome}
                     onChange={(e) => updateField("nome", e.target.value)}
                     className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
@@ -320,7 +320,7 @@ export default function NovoClientePage() {
                   <Label htmlFor="segmento">Segmento de Atuação</Label>
                   <Input
                     id="segmento"
-                    placeholder="Ex: Alimentação"
+                    placeholder="Ex: Material de Construção"
                     value={form.segmento}
                     onChange={(e) => updateField("segmento", e.target.value)}
                     className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"

@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Package, ArrowRight, Loader2, ImageIcon } from "lucide-react";
+import { Plus, Package, ArrowRight, Loader2, ImageIcon, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface Product {
@@ -24,21 +31,34 @@ export default function ProdutosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("/api/products");
-        if (!res.ok) throw new Error("Erro ao buscar produtos");
-        const data = await res.json();
-        setProducts(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro desconhecido");
-      } finally {
-        setLoading(false);
-      }
+  async function fetchProducts() {
+    try {
+      const res = await fetch("/api/products");
+      if (!res.ok) throw new Error("Erro ao buscar produtos");
+      const data = await res.json();
+      setProducts(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchProducts();
   }, []);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Tem certeza que deseja excluir o produto "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/products?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao excluir produto");
+      toast.success("Produto excluído com sucesso");
+      fetchProducts();
+    } catch {
+      toast.error("Erro ao excluir produto");
+    }
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -87,8 +107,33 @@ export default function ProdutosPage() {
           {products.map((product) => (
             <Card
               key={product.id}
-              className="border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl transition-all overflow-hidden group"
+              className="border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl transition-all overflow-hidden group relative"
             >
+              <div className="absolute top-2 right-2 z-10">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-background/80 backdrop-blur-sm hover:bg-muted/80 shadow-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={4}>
+                    <DropdownMenuItem
+                      onClick={() => alert("Em breve")}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => handleDelete(product.id, product.name)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <div className="aspect-square bg-muted/20 flex items-center justify-center overflow-hidden">
                 {product.image_url || product.image_treated_url ? (
                   // eslint-disable-next-line @next/next/no-img-element

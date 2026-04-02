@@ -34,6 +34,33 @@ export async function GET() {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing promotion id" }, { status: 400 });
+    }
+
+    // Deletar promotion_items primeiro
+    await supabase.from("promotion_items").delete().eq("promotion_id", id);
+
+    const { error } = await supabase.from("promotions").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();

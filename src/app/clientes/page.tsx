@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, ArrowRight, Loader2 } from "lucide-react";
+import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface BrandConfig {
@@ -30,21 +37,34 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchClients() {
-      try {
-        const res = await fetch("/api/clients");
-        if (!res.ok) throw new Error("Erro ao buscar clientes");
-        const data = await res.json();
-        setClients(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro desconhecido");
-      } finally {
-        setLoading(false);
-      }
+  async function fetchClients() {
+    try {
+      const res = await fetch("/api/clients");
+      if (!res.ok) throw new Error("Erro ao buscar clientes");
+      const data = await res.json();
+      setClients(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchClients();
   }, []);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Tem certeza que deseja excluir o cliente "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/clients?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao excluir cliente");
+      toast.success("Cliente excluído com sucesso");
+      fetchClients();
+    } catch {
+      toast.error("Erro ao excluir cliente");
+    }
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -139,7 +159,29 @@ export default function ClientesPage() {
                         </p>
                       )}
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/50"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={4}>
+                        <DropdownMenuItem
+                          onClick={() => alert("Em breve")}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => handleDelete(client.id, client.name)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   {colors.length > 0 && (

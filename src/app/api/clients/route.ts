@@ -34,6 +34,33 @@ export async function GET() {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing client id" }, { status: 400 });
+    }
+
+    // Deletar brand_configs primeiro (cascade manual, caso não haja cascade no banco)
+    await supabase.from("brand_configs").delete().eq("client_id", id);
+
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();

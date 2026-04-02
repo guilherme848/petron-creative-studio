@@ -375,6 +375,31 @@ export default function NovaPromocaoPage() {
             </CardHeader>
             <Separator />
             <CardContent className="pt-6">
+              {/* Templates rápidos */}
+              <div className="mb-5">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Templates rápidos
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {["Queima de Estoque", "Liquidação de Pisos", "Mega Oferta", "Aniversário", "Feirão da Construção", "Black Friday", "Saldão"].map(
+                    (template) => (
+                      <button
+                        key={template}
+                        type="button"
+                        onClick={() => updateField("nome", template)}
+                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
+                          form.nome === template
+                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                            : "border-border/50 bg-muted/30 text-muted-foreground hover:border-orange-500/50 hover:text-orange-500 hover:bg-orange-500/5"
+                        }`}
+                      >
+                        {template}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="nome">

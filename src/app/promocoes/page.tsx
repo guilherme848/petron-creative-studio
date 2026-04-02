@@ -10,7 +10,19 @@ import {
   ArrowRight,
   Calendar,
   ShoppingBag,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Sparkles,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import Link from "next/link";
 
 interface PromotionItem {
@@ -37,21 +49,34 @@ export default function PromocoesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchPromotions() {
-      try {
-        const res = await fetch("/api/promotions");
-        if (!res.ok) throw new Error("Erro ao buscar promoções");
-        const data = await res.json();
-        setPromotions(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erro desconhecido");
-      } finally {
-        setLoading(false);
-      }
+  async function fetchPromotions() {
+    try {
+      const res = await fetch("/api/promotions");
+      if (!res.ok) throw new Error("Erro ao buscar promoções");
+      const data = await res.json();
+      setPromotions(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido");
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchPromotions();
   }, []);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Tem certeza que deseja excluir a promoção "${name}"?`)) return;
+    try {
+      const res = await fetch(`/api/promotions?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao excluir promoção");
+      toast.success("Promoção excluída com sucesso");
+      fetchPromotions();
+    } catch {
+      toast.error("Erro ao excluir promoção");
+    }
+  }
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -141,7 +166,36 @@ export default function PromocoesPage() {
                       </p>
                     )}
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={4}>
+                      <DropdownMenuItem
+                        onClick={() => alert("Em breve")}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <Link href="/criar">
+                        <DropdownMenuItem>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Criar Criativo
+                        </DropdownMenuItem>
+                      </Link>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => handleDelete(promo.id, promo.name)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 <div className="mt-4 space-y-2">
