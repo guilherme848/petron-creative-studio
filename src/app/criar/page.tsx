@@ -240,26 +240,47 @@ export default function CriarPage() {
     setVerificacao(null);
 
     try {
-      const tipoLabel = TIPOS_PRECO.find((t) => t.value === state.tipoPreco)?.label || "A PARTIR DE";
+      const bodyData = {
+        clientName: cliente?.nome || "Loja",
+        clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
+        promotionName: state.promocaoNome || "PROMOÇÃO",
+        productName: state.produtoNome,
+        productSpec: state.produtoSpec || undefined,
+        priceType: state.tipoPreco,
+        price: state.preco,
+        previousPrice: state.tipoPreco === "de-por" ? state.precoAnterior : undefined,
+        unit: state.unidade,
+        condition: state.condicao,
+        startDate: state.dataInicio || undefined,
+        endDate: state.dataFim || undefined,
+        format: state.formato,
+        clientId: state.clienteId || undefined,
+      };
+
+      const fd = new FormData();
+      fd.append("data", JSON.stringify(bodyData));
+
+      // Buscar logo do cliente e anexar
+      if (cliente?.logoUrl) {
+        try {
+          const logoRes = await fetch(cliente.logoUrl);
+          if (logoRes.ok) {
+            const logoBlob = await logoRes.blob();
+            fd.append("logo", logoBlob, "logo.png");
+          }
+        } catch {
+          // Logo indisponível, continua sem
+        }
+      }
+
+      // Anexar foto do produto se disponível
+      if (state.produtoFotoFile) {
+        fd.append("productImage", state.produtoFotoFile);
+      }
+
       const res = await fetch("/api/ai/generate-creative", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientName: cliente?.nome || "Loja",
-          clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
-          promotionName: state.promocaoNome || "PROMOÇÃO",
-          productName: state.produtoNome,
-          productSpec: state.produtoSpec || undefined,
-          priceType: state.tipoPreco,
-          price: state.preco,
-          previousPrice: state.tipoPreco === "de-por" ? state.precoAnterior : undefined,
-          unit: state.unidade,
-          condition: state.condicao,
-          startDate: state.dataInicio || undefined,
-          endDate: state.dataFim || undefined,
-          format: state.formato,
-          clientId: state.clienteId || undefined,
-        }),
+        body: fd,
       });
 
       if (!res.ok) {
