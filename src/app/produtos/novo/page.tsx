@@ -141,27 +141,7 @@ export default function NovoProdutoPage() {
         throw new Error(err.error || "Erro ao salvar produto");
       }
 
-      const savedProduct = await res.json();
-
-      // Tentar remover fundo da imagem se houver imagem
-      if (form.imagemFile && savedProduct.image_url) {
-        try {
-          const bgFormData = new FormData();
-          bgFormData.append("image", form.imagemFile);
-
-          const bgRes = await fetch("/api/ai/remove-bg", {
-            method: "POST",
-            body: bgFormData,
-          });
-
-          if (bgRes.ok) {
-            console.log("Fundo removido com sucesso");
-          }
-        } catch {
-          console.warn("Erro ao remover fundo da imagem (continuando)");
-        }
-      }
-
+      toast.success("Produto cadastrado com sucesso!");
       router.push("/produtos");
     } catch (err) {
       toast.error(

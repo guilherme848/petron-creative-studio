@@ -154,6 +154,10 @@ export default function CriarPage() {
   const [produtoDrag, setProdutoDrag] = useState(false);
   const [gerandoSelo, setGerandoSelo] = useState(false);
   const [seloPrompt, setSeloPrompt] = useState("");
+  const [gerandoCriativo, setGerandoCriativo] = useState(false);
+  const [criativoUrl, setCriativoUrl] = useState<string | null>(null);
+  const [criativoBlob, setCriativoBlob] = useState<Blob | null>(null);
+  const [verificacao, setVerificacao] = useState<{ nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] } | null>(null);
 
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
@@ -228,6 +232,101 @@ export default function CriarPage() {
       },
     [handleFileUpload]
   );
+
+  const handleGerarCriativo = async () => {
+    setGerandoCriativo(true);
+    setCriativoUrl(null);
+    setCriativoBlob(null);
+    setVerificacao(null);
+
+    try {
+      const tipoLabel = TIPOS_PRECO.find((t) => t.value === state.tipoPreco)?.label || "A PARTIR DE";
+      const res = await fetch("/api/ai/generate-creative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: cliente?.nome || "Loja",
+          clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
+          promotionName: state.promocaoNome || "PROMOÇÃO",
+          productName: state.produtoNome,
+          productSpec: state.produtoSpec || undefined,
+          priceType: state.tipoPreco,
+          price: state.preco,
+          previousPrice: state.tipoPreco === "de-por" ? state.precoAnterior : undefined,
+          unit: state.unidade,
+          condition: state.condicao,
+          startDate: state.dataInicio || undefined,
+          endDate: state.dataFim || undefined,
+          format: state.formato,
+          clientId: state.clienteId || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao gerar criativo");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setCriativoUrl(url);
+      setCriativoBlob(blob);
+      toast.success("Criativo gerado com sucesso!");
+
+      // Verificar textos automaticamente
+      try {
+        const expectedTexts = [
+          state.promocaoNome || "PROMOÇÃO",
+          cliente?.nome || "Loja",
+          state.produtoNome,
+          state.preco,
+          state.unidade,
+        ].filter(Boolean);
+
+        const verifyForm = new FormData();
+        verifyForm.append("image", blob, "criativo.png");
+        verifyForm.append("expectedTexts", JSON.stringify(expectedTexts));
+
+        const verifyRes = await fetch("/api/ai/verify-text", {
+          method: "POST",
+          body: verifyForm,
+        });
+
+        if (verifyRes.ok) {
+          const result = await verifyRes.json();
+          setVerificacao(result);
+          if (result.nota >= 8) {
+            toast.success(`Verificação de texto: nota ${result.nota}/10`);
+          } else {
+            toast.warning(`Verificação de texto: nota ${result.nota}/10 — possíveis erros detectados`);
+          }
+        }
+      } catch {
+        // Verificação falhou, mas o criativo foi gerado
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar criativo");
+    } finally {
+      setGerandoCriativo(false);
+    }
+  };
+
+  const handleDownload = (format: string) => {
+    if (!criativoBlob) {
+      toast.error("Gere o criativo primeiro");
+      return;
+    }
+    const ext = format === "jpg" ? "jpg" : "png";
+    const url = URL.createObjectURL(criativoBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `criativo-${state.promocaoNome || "petron"}-${state.formato}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Download iniciado!");
+  };
 
   const canAdvance = () => {
     if (step === 1 && !state.clienteId) return false;
@@ -694,72 +793,40 @@ export default function CriarPage() {
             </Card>
           )}
 
-          {/* Step 4: Preview */}
+          {/* Step 4: Gerar Criativo com IA */}
           {step === 4 && (
             <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
-                    <Eye className="h-4 w-4 text-orange-500" />
+                    <Sparkles className="h-4 w-4 text-orange-500" />
                   </div>
-                  Preview do Criativo
+                  Gerar Criativo com IA
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Confira o criativo gerado ao lado. Volte aos passos anteriores
-                  para ajustar qualquer detalhe.
-                </p>
+                {/* Resumo dos dados */}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Cliente
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente</p>
                     <p className="text-sm font-semibold">{cliente?.nome || "—"}</p>
                   </div>
                   <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Promoção
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {state.promocaoNome || "—"}
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Promoção</p>
+                    <p className="text-sm font-semibold">{state.promocaoNome || "—"}</p>
                   </div>
                   <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Produto
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {state.produtoNome || "—"}
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Produto</p>
+                    <p className="text-sm font-semibold">{state.produtoNome || "—"}</p>
                   </div>
                   <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Preço
-                    </p>
-                    <p className="text-sm font-semibold">
-                      R$ {state.preco || "0,00"} {state.unidade}
-                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Preço</p>
+                    <p className="text-sm font-semibold">R$ {state.preco || "0,00"} {state.unidade}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Step 5: Exportar */}
-          {step === 5 && (
-            <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
-                    <Download className="h-4 w-4 text-orange-500" />
-                  </div>
-                  Exportar Criativo
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Formato de exportação</Label>
+                  <Label>Formato</Label>
                   <Select
                     value={state.formato}
                     onValueChange={(val) => update({ formato: val ?? "" })}
@@ -777,23 +844,91 @@ export default function CriarPage() {
                   </Select>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button
-                    className="h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                    onClick={() => toast.info("Exportação em PNG disponível em breve!")}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar PNG
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-12 btn-micro"
-                    onClick={() => toast.info("Exportação em JPG disponível em breve!")}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar JPG
-                  </Button>
-                </div>
+                <Button
+                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                  onClick={handleGerarCriativo}
+                  disabled={gerandoCriativo}
+                >
+                  {gerandoCriativo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Gerando criativo com Imagen 4 Ultra...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar Criativo com IA
+                    </>
+                  )}
+                </Button>
+
+                {/* Verificação de texto */}
+                {verificacao && (
+                  <div className={`rounded-xl border p-3 ${verificacao.nota >= 8 ? "border-green-500/30 bg-green-500/5" : "border-orange-500/30 bg-orange-500/5"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold">Verificação de texto</p>
+                      <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
+                        Nota: {verificacao.nota}/10
+                      </Badge>
+                    </div>
+                    {verificacao.erros.length > 0 && (
+                      <div className="space-y-1">
+                        {verificacao.erros.map((e, i) => (
+                          <p key={i} className="text-[11px] text-muted-foreground">
+                            <span className="text-destructive">●</span> Esperado: &quot;{e.esperado}&quot; → Encontrado: &quot;{e.encontrado}&quot;
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 5: Exportar */}
+          {step === 5 && (
+            <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
+                    <Download className="h-4 w-4 text-orange-500" />
+                  </div>
+                  Exportar Criativo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {criativoUrl ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Seu criativo está pronto! Clique para baixar.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Button
+                        className="h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                        onClick={() => handleDownload("png")}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Baixar PNG
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-12 btn-micro"
+                        onClick={() => handleDownload("jpg")}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Baixar JPG
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <Sparkles className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Volte ao passo anterior e gere o criativo primeiro.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -834,7 +969,27 @@ export default function CriarPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Creative Preview */}
+              {/* Creative Preview — IA generated or placeholder */}
+              {criativoUrl ? (
+                <div className="space-y-3">
+                  <img
+                    src={criativoUrl}
+                    alt="Criativo gerado"
+                    className="w-full rounded-xl border border-border/50"
+                  />
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-[10px] bg-orange-500/10 text-orange-600 border-0">
+                      {state.formato} — Imagen 4 Ultra
+                    </Badge>
+                    {verificacao && (
+                      <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500"}`}>
+                        Texto: {verificacao.nota}/10
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ) : (
+              <>
               <div
                 className="relative w-full overflow-hidden rounded-xl border border-border/50"
                 style={{ aspectRatio: "1 / 1" }}
@@ -1034,6 +1189,8 @@ export default function CriarPage() {
                   Preview em tempo real
                 </span>
               </div>
+              </>
+              )}
             </CardContent>
           </Card>
         </div>

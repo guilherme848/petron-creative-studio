@@ -83,6 +83,41 @@ export async function POST(request: Request) {
       imageUrl = `${SUPABASE_URL}/storage/v1/object/public/products/${fileName}`;
     }
 
+    // Tentar remover fundo se tiver imagem e API key configurada
+    let imageTreatedUrl: string | null = null;
+
+    if (imageFile && imageUrl && process.env.REMOVE_BG_API_KEY) {
+      try {
+        const bgFormData = new FormData();
+        bgFormData.append("image_file", imageFile);
+        bgFormData.append("size", "auto");
+
+        const bgRes = await fetch("https://api.remove.bg/v1.0/removebg", {
+          method: "POST",
+          headers: { "X-Api-Key": process.env.REMOVE_BG_API_KEY },
+          body: bgFormData,
+        });
+
+        if (bgRes.ok) {
+          const treatedBuffer = new Uint8Array(await bgRes.arrayBuffer());
+          const treatedFileName = `treated-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.png`;
+
+          const { error: treatedUploadError } = await supabase.storage
+            .from("products")
+            .upload(treatedFileName, treatedBuffer, {
+              contentType: "image/png",
+              upsert: false,
+            });
+
+          if (!treatedUploadError) {
+            imageTreatedUrl = `${SUPABASE_URL}/storage/v1/object/public/products/${treatedFileName}`;
+          }
+        }
+      } catch {
+        // Remoção de fundo falhou — continua sem ela
+      }
+    }
+
     const { data: product, error: productError } = await supabase
       .from("products")
       .insert({
@@ -92,7 +127,7 @@ export async function POST(request: Request) {
         category: productData.category || null,
         brand: productData.brand || null,
         image_url: imageUrl,
-        image_treated_url: null,
+        image_treated_url: imageTreatedUrl,
       })
       .select()
       .single();
