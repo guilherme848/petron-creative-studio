@@ -1,65 +1,222 @@
-import Image from "next/image";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Users,
+  Package,
+  Megaphone,
+  ImagePlus,
+  MessageSquare,
+  ArrowRight,
+  Upload,
+  Palette,
+  Wand2,
+  Clock,
+} from "lucide-react";
+import Link from "next/link";
 
-export default function Home() {
+const stats = [
+  {
+    title: "Clientes",
+    value: "0",
+    description: "cadastrados",
+    icon: Users,
+    href: "/clientes",
+    gradient: "from-[#F97316] to-[#f43f5e]",
+    glow: "shadow-orange-500/20",
+    iconBg: "bg-orange-500/10",
+    iconColor: "text-orange-400",
+  },
+  {
+    title: "Produtos",
+    value: "0",
+    description: "no banco",
+    icon: Package,
+    href: "/produtos",
+    gradient: "from-teal-500 to-emerald-400",
+    glow: "shadow-teal-500/20",
+    iconBg: "bg-teal-500/10",
+    iconColor: "text-teal-400",
+  },
+  {
+    title: "Promoções",
+    value: "0",
+    description: "ativas",
+    icon: Megaphone,
+    href: "/promocoes",
+    gradient: "from-amber-500 to-yellow-400",
+    glow: "shadow-amber-500/20",
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-400",
+  },
+  {
+    title: "Criativos",
+    value: "0",
+    description: "gerados",
+    icon: ImagePlus,
+    href: "/criar",
+    gradient: "from-[#F97316] to-[#f43f5e]",
+    glow: "shadow-orange-500/20",
+    iconBg: "bg-rose-500/10",
+    iconColor: "text-rose-400",
+  },
+];
+
+const steps = [
+  {
+    number: "01",
+    title: "Cadastre o cliente",
+    description: "Upload da logo e configuração da identidade visual",
+    icon: Upload,
+    color: "text-orange-400",
+    borderColor: "border-orange-500/20",
+    bg: "bg-orange-500/5",
+  },
+  {
+    number: "02",
+    title: "Cadastre os produtos",
+    description: "Adicione fotos e remoção automática de fundo com IA",
+    icon: Package,
+    color: "text-teal-400",
+    borderColor: "border-teal-500/20",
+    bg: "bg-teal-500/5",
+  },
+  {
+    number: "03",
+    title: "Crie a promoção",
+    description: "Defina tipo, periodo e gere selo 3D com inteligência artificial",
+    icon: Palette,
+    color: "text-amber-400",
+    borderColor: "border-amber-500/20",
+    bg: "bg-amber-500/5",
+  },
+  {
+    number: "04",
+    title: "Gere o criativo",
+    description: "Escolha entre variações e exporte em alta resolução",
+    icon: Wand2,
+    color: "text-rose-400",
+    borderColor: "border-rose-500/20",
+    bg: "bg-rose-500/5",
+  },
+];
+
+export default function DashboardPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="space-y-8 animate-fade-in">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-orange-500/10 via-background to-rose-500/5 p-8 md:p-10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-orange-500/8 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#F97316]">
+              <MessageSquare className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+              Creative Studio
+            </span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
+            Bem-vindo ao{" "}
+            <span className="text-gradient">Petron Creative</span>
+          </h2>
+          <p className="text-muted-foreground max-w-lg text-sm leading-relaxed">
+            Gere criativos profissionais para Meta Ads em menos de 5 minutos.
+            Potencializado por inteligência artificial para lojas de materiais de construção.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
+        {stats.map((stat) => (
+          <Link key={stat.href} href={stat.href}>
+            <Card className="group relative overflow-hidden cursor-pointer border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl p-5">
+              <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-[0.03]`} />
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="label-upper text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <div className={`rounded-lg p-2 ${stat.iconBg}`}>
+                  <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="kpi-large tracking-tight">{stat.value}</div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-muted-foreground group-hover:translate-x-0.5" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* How to start - Stepper */}
+      <div>
+        <div className="flex items-center gap-2 mb-5">
+          <h3 className="text-lg font-semibold tracking-tight">Como começar</h3>
+          <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
         </div>
-      </main>
+
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 stagger-children">
+          {steps.map((step) => (
+            <Card
+              key={step.number}
+              className="relative overflow-hidden border-border/50 bg-card/30 hover:bg-card/60 hover:border-border group rounded-2xl"
+            >
+              <CardContent className="pt-5 pb-5">
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${step.bg} border ${step.borderColor}`}>
+                    <step.icon className={`h-4.5 w-4.5 ${step.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold tracking-wider ${step.color} opacity-60`}>
+                        PASSO {step.number}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-foreground mb-0.5">
+                      {step.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {step.description}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div>
+        <div className="flex items-center gap-2 mb-5">
+          <h3 className="text-lg font-semibold tracking-tight">Atividade recente</h3>
+          <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+        </div>
+
+        <Card className="border-border/50 bg-card/30 overflow-hidden rounded-2xl">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="relative mb-5">
+              <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-xl animate-glow-pulse" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-border/50 bg-card">
+                <Clock className="h-7 w-7 text-muted-foreground/40" />
+              </div>
+            </div>
+            <h4 className="text-sm font-semibold text-foreground mb-1">
+              Nenhuma atividade ainda
+            </h4>
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              Comece cadastrando um cliente para ver sua atividade aqui. Cada criativo gerado aparecerá nesta timeline.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
