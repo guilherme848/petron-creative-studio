@@ -15,6 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Upload,
   X,
   Plus,
@@ -28,6 +35,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { FONTES_TITULO, FONTES_PRECO, FONTES_DESCRICAO } from "@/lib/constants";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -626,36 +634,52 @@ export default function EditarClientePage() {
             <CardContent className="pt-6">
               <div className="grid gap-5 sm:grid-cols-3">
                 <div>
-                  <Label htmlFor="fonteTitulo">Fonte de Título</Label>
-                  <Input
-                    id="fonteTitulo"
-                    placeholder="Ex: Montserrat"
-                    value={form.fonteTitulo}
-                    onChange={(e) => updateField("fonteTitulo", e.target.value)}
-                    className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
-                  />
+                  <Label>Fonte de Título</Label>
+                  <Select
+                    value={form.fonteTitulo || undefined}
+                    onValueChange={(val) => updateField("fonteTitulo", val ?? "")}
+                  >
+                    <SelectTrigger className="mt-1.5 h-[42px]">
+                      <SelectValue placeholder="Selecione a fonte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONTES_TITULO.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="fontePreco">Fonte de Preço</Label>
-                  <Input
-                    id="fontePreco"
-                    placeholder="Ex: Oswald"
-                    value={form.fontePreco}
-                    onChange={(e) => updateField("fontePreco", e.target.value)}
-                    className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
-                  />
+                  <Label>Fonte de Preço</Label>
+                  <Select
+                    value={form.fontePreco || undefined}
+                    onValueChange={(val) => updateField("fontePreco", val ?? "")}
+                  >
+                    <SelectTrigger className="mt-1.5 h-[42px]">
+                      <SelectValue placeholder="Selecione a fonte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONTES_PRECO.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="fonteDescricao">Fonte de Descrição</Label>
-                  <Input
-                    id="fonteDescricao"
-                    placeholder="Ex: Open Sans"
-                    value={form.fonteDescricao}
-                    onChange={(e) =>
-                      updateField("fonteDescricao", e.target.value)
-                    }
-                    className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
-                  />
+                  <Label>Fonte de Descrição</Label>
+                  <Select
+                    value={form.fonteDescricao || undefined}
+                    onValueChange={(val) => updateField("fonteDescricao", val ?? "")}
+                  >
+                    <SelectTrigger className="mt-1.5 h-[42px]">
+                      <SelectValue placeholder="Selecione a fonte" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONTES_DESCRICAO.map((f) => (
+                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>

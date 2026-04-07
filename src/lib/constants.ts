@@ -32,6 +32,46 @@ export const FORMAS_PAGAMENTO = [
   "Cartão",
 ] as const;
 
+// Fontes disponíveis para criativos promocionais
+export const FONTES_TITULO = [
+  "Montserrat",
+  "Oswald",
+  "Bebas Neue",
+  "Anton",
+  "Impact",
+  "Poppins",
+  "Roboto Condensed",
+  "Raleway",
+  "Barlow Condensed",
+  "Archivo Black",
+] as const;
+
+export const FONTES_PRECO = [
+  "Oswald",
+  "Bebas Neue",
+  "Anton",
+  "Impact",
+  "Montserrat",
+  "Barlow Condensed",
+  "Roboto Condensed",
+  "Archivo Black",
+  "Teko",
+  "Fjalla One",
+] as const;
+
+export const FONTES_DESCRICAO = [
+  "Open Sans",
+  "Roboto",
+  "Lato",
+  "Poppins",
+  "Nunito",
+  "Source Sans 3",
+  "Inter",
+  "Montserrat",
+  "PT Sans",
+  "Raleway",
+] as const;
+
 // Formatos de exportação
 export const FORMATOS_EXPORTACAO = [
   { value: "1080x1080", label: "Feed (1080×1080)", aspectRatio: "1:1" },

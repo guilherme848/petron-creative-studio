@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const {
       clientName,
       clientColors,
+      clientFonts,
       promotionName,
       productName,
       productSpec,
@@ -120,10 +121,20 @@ CRITICAL RULES FOR IMAGES:
       imageInstructions = `I provided the REAL PRODUCT PHOTO. CRITICAL: Use this EXACT PRODUCT image large with shadow.`;
     }
 
+    // Montar instruções de tipografia
+    const fontTitle = clientFonts?.title || "Montserrat";
+    const fontPrice = clientFonts?.price || "Oswald";
+    const fontDesc = clientFonts?.description || "Open Sans";
+
     const prompt = `${imageInstructions}
 
 Create a premium Brazilian retail promotional poster for a building materials store.
 Format: ${isVertical ? "vertical 1080x1350" : "square 1080x1080"}.
+
+MANDATORY TYPOGRAPHY:
+- Titles and product names: use "${fontTitle}" font family, extra-bold/black weight
+- Prices and numbers: use "${fontPrice}" font family, bold weight, large size
+- Descriptions, conditions and footer: use "${fontDesc}" font family, regular/medium weight
 
 MANDATORY TEXT RULES:
 - ALL text in Brazilian Portuguese with correct accents

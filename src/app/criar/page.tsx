@@ -36,20 +36,28 @@ import {
   Megaphone,
   Package,
   Sparkles,
-  Eye,
   Check,
   Loader2,
+  Search,
+  Type,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO } from "@/lib/constants";
 
 // -- Types for fetched data ---------------------------------------------------
 
+interface ClienteFonts {
+  title: string | null;
+  price: string | null;
+  description: string | null;
+}
+
 interface ClienteAPI {
   id: string;
   nome: string;
   logoUrl: string | null;
   cores: string[];
+  fonts: ClienteFonts;
 }
 
 interface ProdutoAPI {
@@ -113,12 +121,21 @@ export default function CriarPage() {
           data.map((c: {
             id: string;
             name: string;
-            brand_configs?: { logo_url?: string | null; colors?: { hex: string }[] }[];
+            brand_configs?: {
+              logo_url?: string | null;
+              colors?: { hex: string }[];
+              fonts?: { title?: string | null; price?: string | null; description?: string | null };
+            }[];
           }) => ({
             id: c.id,
             nome: c.name,
             logoUrl: c.brand_configs?.[0]?.logo_url || null,
             cores: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || ["#F97316", "#FFFFFF", "#333333"],
+            fonts: {
+              title: c.brand_configs?.[0]?.fonts?.title || null,
+              price: c.brand_configs?.[0]?.fonts?.price || null,
+              description: c.brand_configs?.[0]?.fonts?.description || null,
+            },
           }))
         );
       } catch {
@@ -160,6 +177,8 @@ export default function CriarPage() {
   const [criativoUrl, setCriativoUrl] = useState<string | null>(null);
   const [criativoBlob, setCriativoBlob] = useState<Blob | null>(null);
   const [verificacao, setVerificacao] = useState<{ nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] } | null>(null);
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [usarProdutoCadastrado, setUsarProdutoCadastrado] = useState(false);
 
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
@@ -245,6 +264,7 @@ export default function CriarPage() {
       const bodyData = {
         clientName: cliente?.nome || "Loja",
         clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
+        clientFonts: cliente?.fonts || null,
         promotionName: state.promocaoNome || "PROMOÇÃO",
         productName: state.produtoNome,
         productSpec: state.produtoSpec || undefined,
@@ -416,8 +436,8 @@ export default function CriarPage() {
         ))}
       </div>
 
-      {/* Content: Form + Preview */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+      {/* Content */}
+      <div className="max-w-2xl">
         {/* Left: Steps */}
         <div className="space-y-5">
           {/* Step 1: Cliente */}
@@ -458,8 +478,20 @@ export default function CriarPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-3">
-                    {clientes.map((c) => (
+                  <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar cliente..."
+                      value={clienteSearch}
+                      onChange={(e) => setClienteSearch(e.target.value)}
+                      className="pl-9 h-[42px]"
+                    />
+                  </div>
+                  <div className="grid gap-3 max-h-[400px] overflow-y-auto">
+                    {clientes.filter((c) =>
+                      c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
+                    ).map((c) => (
                       <button
                         key={c.id}
                         onClick={() => update({ clienteId: c.id })}
@@ -502,6 +534,7 @@ export default function CriarPage() {
                       </button>
                     ))}
                   </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -660,6 +693,103 @@ export default function CriarPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Toggle: produto cadastrado ou novo */}
+                <div className="flex items-center gap-2 p-1 rounded-lg bg-muted/50">
+                  <button
+                    type="button"
+                    onClick={() => setUsarProdutoCadastrado(false)}
+                    className={`flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                      !usarProdutoCadastrado
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Criar do zero
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUsarProdutoCadastrado(true)}
+                    className={`flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                      usarProdutoCadastrado
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Usar cadastrado ({produtosCliente.length})
+                  </button>
+                </div>
+
+                {usarProdutoCadastrado ? (
+                  <>
+                    {loadingProdutos ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Buscando produtos...</span>
+                      </div>
+                    ) : produtosCliente.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">
+                        Nenhum produto cadastrado para este cliente.
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 max-h-[250px] overflow-y-auto">
+                        {produtosCliente.map((p) => {
+                          const isSelected = state.produtoNome === p.name;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                const imageUrl = p.image_treated_url || p.image_url;
+                                update({
+                                  produtoNome: p.name,
+                                  produtoSpec: p.category || "",
+                                  produtoFotoUrl: imageUrl,
+                                  produtoFotoFile: null,
+                                });
+                                // Fetch the image as a File to send to AI
+                                if (imageUrl) {
+                                  fetch(imageUrl)
+                                    .then((r) => r.blob())
+                                    .then((blob) => {
+                                      const file = new File([blob], "product.png", { type: "image/png" });
+                                      update({ produtoFotoFile: file });
+                                    })
+                                    .catch(() => {});
+                                }
+                              }}
+                              className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                isSelected
+                                  ? "border-orange-500 bg-orange-500/5 shadow-sm"
+                                  : "border-border/50 hover:border-orange-500/30"
+                              }`}
+                            >
+                              {(p.image_treated_url || p.image_url) ? (
+                                <div className="h-12 w-12 rounded-lg border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-1 shrink-0">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.image_treated_url || p.image_url || ""} alt={p.name} className="max-h-full max-w-full object-contain" />
+                                </div>
+                              ) : (
+                                <div className="h-12 w-12 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
+                                  <Package className="h-5 w-5 text-muted-foreground/50" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{p.name}</p>
+                                {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
+                              </div>
+                              {isSelected && (
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shrink-0">
+                                  <Check className="h-3 w-3" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>
@@ -729,6 +859,8 @@ export default function CriarPage() {
                     </div>
                   )}
                 </div>
+                  </>
+                )}
 
                 <Separator />
 
@@ -873,6 +1005,27 @@ export default function CriarPage() {
                   </div>
                 </div>
 
+                {/* Tipografia do cliente */}
+                {cliente?.fonts && (cliente.fonts.title || cliente.fonts.price || cliente.fonts.description) && (
+                  <div className="rounded-xl border border-border/50 p-3 space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Type className="h-3 w-3" />
+                      Tipografia
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {cliente.fonts.title && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.title}</span>
+                      )}
+                      {cliente.fonts.price && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.price}</span>
+                      )}
+                      {cliente.fonts.description && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.description}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>Formato</Label>
                   <Select
@@ -1007,241 +1160,28 @@ export default function CriarPage() {
           </div>
         </div>
 
-        {/* Right: Live Preview */}
-        <div className="lg:sticky lg:top-[76px] lg:self-start">
+        {/* Imagem gerada (exibida inline após geração) */}
+        {criativoUrl && (
           <Card className="rounded-2xl border-border/50 bg-card/80 overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                Preview ao vivo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Creative Preview — IA generated or placeholder */}
-              {criativoUrl ? (
-                <div className="space-y-3">
-                  <img
-                    src={criativoUrl}
-                    alt="Criativo gerado"
-                    className="w-full rounded-xl border border-border/50"
-                  />
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-[10px] bg-orange-500/10 text-orange-600 border-0">
-                      {state.formato} — Imagen 4 Ultra
-                    </Badge>
-                    {verificacao && (
-                      <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500"}`}>
-                        Texto: {verificacao.nota}/10
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ) : (
-              <>
-              <div
-                className="relative w-full overflow-hidden rounded-xl border border-border/50"
-                style={{ aspectRatio: "1 / 1" }}
-              >
-                {/* Background */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: cliente
-                      ? `linear-gradient(135deg, ${cliente.cores[0]} 0%, ${cliente.cores[0]} 45%, ${cliente.cores[1]} 45%, ${cliente.cores[1]} 100%)`
-                      : "linear-gradient(135deg, #F97316 0%, #F97316 45%, #FFFFFF 45%, #FFFFFF 100%)",
-                  }}
-                />
-
-                {/* Content */}
-                <div className="relative z-10 flex flex-col h-full p-[8%]">
-                  {/* Topo: Selo / Nome da promoção */}
-                  <div className="text-center mb-[4%]">
-                    {state.seloUrl ? (
-                      <img
-                        src={state.seloUrl}
-                        alt="Selo"
-                        className="max-h-[25%] mx-auto object-contain drop-shadow-lg"
-                      />
-                    ) : state.promocaoNome ? (
-                      <div className="inline-block">
-                        <p
-                          className="text-white font-black uppercase tracking-tight drop-shadow-lg"
-                          style={{ fontSize: "clamp(10px, 4vw, 22px)" }}
-                        >
-                          {state.promocaoNome}
-                        </p>
-                      </div>
-                    ) : (
-                      <p
-                        className="text-white/60 font-bold uppercase"
-                        style={{ fontSize: "clamp(8px, 3vw, 16px)" }}
-                      >
-                        Nome da promoção
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Logo do cliente */}
-                  <div className="text-center mb-[4%]">
-                    {cliente ? (
-                      <div
-                        className="inline-flex h-[8%] min-h-[24px] items-center justify-center rounded px-2 text-white font-bold"
-                        style={{
-                          backgroundColor: cliente.cores[2] || "#333",
-                          fontSize: "clamp(6px, 2vw, 11px)",
-                        }}
-                      >
-                        {cliente.nome}
-                      </div>
-                    ) : (
-                      <div className="inline-block rounded bg-white/20 px-2 py-0.5">
-                        <span
-                          className="text-white/50 font-medium"
-                          style={{ fontSize: "clamp(6px, 2vw, 10px)" }}
-                        >
-                          Logo do cliente
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Corpo: Produto + Preço + Foto */}
-                  <div className="flex-1 flex items-center gap-[4%]">
-                    {/* Esquerda: Info do produto */}
-                    <div className="flex-1 space-y-[3%]">
-                      <div>
-                        <p
-                          className="font-black uppercase text-[#1a1a1a] leading-tight"
-                          style={{ fontSize: "clamp(9px, 3.5vw, 18px)" }}
-                        >
-                          {state.produtoNome || "PRODUTO"}
-                        </p>
-                        {state.produtoSpec && (
-                          <p
-                            className="text-[#333] font-medium"
-                            style={{ fontSize: "clamp(6px, 2vw, 11px)" }}
-                          >
-                            {state.produtoSpec}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Tag de preço */}
-                      <div
-                        className="inline-block rounded px-1.5 py-0.5"
-                        style={{
-                          backgroundColor: cliente?.cores[0] || "#F97316",
-                          fontSize: "clamp(5px, 1.8vw, 9px)",
-                        }}
-                      >
-                        <span className="text-white font-bold uppercase tracking-wide">
-                          {tipoLabel}
-                        </span>
-                      </div>
-
-                      {/* Preço anterior (De/Por) */}
-                      {state.tipoPreco === "de-por" && state.precoAnterior && (
-                        <p
-                          className="text-[#666] line-through"
-                          style={{ fontSize: "clamp(6px, 2vw, 11px)" }}
-                        >
-                          De R${state.precoAnterior}
-                        </p>
-                      )}
-
-                      {/* Preço */}
-                      <div className="flex items-start gap-0.5">
-                        <span
-                          className="font-black text-[#1a1a1a] leading-none"
-                          style={{ fontSize: "clamp(20px, 8vw, 42px)" }}
-                        >
-                          {preco.inteiro}
-                        </span>
-                        <span
-                          className="font-bold text-[#1a1a1a]"
-                          style={{
-                            fontSize: "clamp(8px, 3vw, 18px)",
-                            marginTop: "2%",
-                          }}
-                        >
-                          ,{preco.centavos}
-                        </span>
-                      </div>
-
-                      <p
-                        className="font-semibold text-[#444]"
-                        style={{ fontSize: "clamp(5px, 1.8vw, 10px)" }}
-                      >
-                        {state.unidade} {state.condicao.toUpperCase()}
-                      </p>
-                    </div>
-
-                    {/* Direita: Foto do produto */}
-                    <div className="w-[42%] aspect-square flex items-center justify-center">
-                      {state.produtoFotoUrl ? (
-                        <img
-                          src={state.produtoFotoUrl}
-                          alt="Produto"
-                          className="w-full h-full object-contain drop-shadow-xl"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-lg bg-white/40 border border-white/30 flex items-center justify-center">
-                          <ImagePlus
-                            className="text-white/40"
-                            style={{
-                              width: "clamp(16px, 5vw, 32px)",
-                              height: "clamp(16px, 5vw, 32px)",
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Rodapé: Validade */}
-                  <div className="mt-auto pt-[3%]">
-                    <div
-                      className="flex items-center justify-center gap-1 rounded py-1 px-2"
-                      style={{
-                        backgroundColor: cliente?.cores[0] || "#F97316",
-                        fontSize: "clamp(5px, 1.6vw, 9px)",
-                      }}
-                    >
-                      <span className="text-white font-semibold">
-                        {state.dataInicio && state.dataFim
-                          ? `Ofertas válidas de ${new Date(state.dataInicio + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "long" })} a ${new Date(state.dataFim + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`
-                          : "Ofertas válidas de __ a __"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Disclaimer lateral */}
-                <div
-                  className="absolute right-1 top-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[#999]"
-                  style={{ fontSize: "clamp(3px, 1vw, 6px)" }}
-                >
-                  IMAGEM MERAMENTE ILUSTRATIVA
-                </div>
-              </div>
-
-              {/* Info do formato */}
-              <div className="flex items-center justify-between mt-3">
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] bg-orange-500/10 text-orange-600 border-0"
-                >
+            <CardContent className="p-4">
+              <img
+                src={criativoUrl}
+                alt="Criativo gerado"
+                className="w-full max-w-md mx-auto rounded-xl border border-border/50"
+              />
+              <div className="flex items-center justify-center gap-3 mt-3">
+                <Badge variant="secondary" className="text-[10px] bg-orange-500/10 text-orange-600 border-0">
                   {state.formato}
                 </Badge>
-                <span className="text-[10px] text-muted-foreground">
-                  Preview em tempo real
-                </span>
+                {verificacao && (
+                  <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500"}`}>
+                    Texto: {verificacao.nota}/10
+                  </Badge>
+                )}
               </div>
-              </>
-              )}
             </CardContent>
           </Card>
-        </div>
+        )}
       </div>
     </div>
   );
