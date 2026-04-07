@@ -90,16 +90,38 @@ interface CreativeState {
   unidade: string;
   condicao: string;
   cta: string;
-  // Step 5
+  // Step 4+
   formato: string;
+}
+
+interface VariationResult {
+  url: string;
+  blob: Blob;
+  variation: number;
+}
+
+interface BatchProduct {
+  id: string;
+  name: string;
+  spec: string;
+  imageUrl: string | null;
+  price: string;
+  unit: string;
+}
+
+interface BatchResult {
+  product: BatchProduct;
+  url: string;
+  blob: Blob;
 }
 
 const STEPS = [
   { num: 1, label: "Cliente" },
   { num: 2, label: "Promoção" },
   { num: 3, label: "Produto" },
-  { num: 4, label: "Preview" },
-  { num: 5, label: "Exportar" },
+  { num: 4, label: "Estilos" },
+  { num: 5, label: "Lote" },
+  { num: 6, label: "Exportar" },
 ];
 
 // -- Component ----------------------------------------------------------------
@@ -180,11 +202,24 @@ export default function CriarPage() {
   const [clienteSearch, setClienteSearch] = useState("");
   const [usarProdutoCadastrado, setUsarProdutoCadastrado] = useState(false);
 
+  // Step 4: 3 variações
+  const [variations, setVariations] = useState<VariationResult[]>([]);
+  const [gerandoVariacoes, setGerandoVariacoes] = useState(false);
+  const [variacaoProgresso, setVariacaoProgresso] = useState(0);
+  const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
+
+  // Step 5: Geração em lote
+  const [batchProducts, setBatchProducts] = useState<BatchProduct[]>([]);
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
+  const [gerandoLote, setGerandoLote] = useState(false);
+  const [loteProgresso, setLoteProgresso] = useState(0);
+  const [loteTotalItens, setLoteTotalItens] = useState(0);
+
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
-  // Buscar produtos do cliente selecionado ao mudar de step para 3
+  // Buscar produtos do cliente selecionado ao entrar no step 3 ou 5
   useEffect(() => {
-    if (step === 3 && state.clienteId) {
+    if ((step === 3 || step === 5) && state.clienteId) {
       async function fetchProducts() {
         setLoadingProdutos(true);
         try {
@@ -254,127 +289,218 @@ export default function CriarPage() {
     [handleFileUpload]
   );
 
-  const handleGerarCriativo = async () => {
-    setGerandoCriativo(true);
-    setCriativoUrl(null);
-    setCriativoBlob(null);
-    setVerificacao(null);
+  // Função base para gerar um criativo individual
+  const generateSingleCreative = async (
+    productName: string,
+    productSpec: string | undefined,
+    productImageFile: File | null,
+    price: string,
+    previousPrice: string | undefined,
+    priceType: string,
+    unitVal: string,
+    conditionVal: string,
+    styleVariation?: number,
+    referenceBlob?: Blob | null,
+  ): Promise<{ blob: Blob; url: string }> => {
+    const bodyData = {
+      clientName: cliente?.nome || "Loja",
+      clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
+      clientFonts: cliente?.fonts || null,
+      promotionName: state.promocaoNome || "PROMOÇÃO",
+      productName,
+      productSpec: productSpec || undefined,
+      priceType,
+      price,
+      previousPrice: priceType === "de-por" ? previousPrice : undefined,
+      unit: unitVal,
+      condition: conditionVal,
+      startDate: state.dataInicio || undefined,
+      endDate: state.dataFim || undefined,
+      format: state.formato,
+      cta: state.cta || "Clique e fale conosco",
+      clientId: state.clienteId || undefined,
+      styleVariation,
+    };
 
-    try {
-      const bodyData = {
-        clientName: cliente?.nome || "Loja",
-        clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
-        clientFonts: cliente?.fonts || null,
-        promotionName: state.promocaoNome || "PROMOÇÃO",
-        productName: state.produtoNome,
-        productSpec: state.produtoSpec || undefined,
-        priceType: state.tipoPreco,
-        price: state.preco,
-        previousPrice: state.tipoPreco === "de-por" ? state.precoAnterior : undefined,
-        unit: state.unidade,
-        condition: state.condicao,
-        startDate: state.dataInicio || undefined,
-        endDate: state.dataFim || undefined,
-        format: state.formato,
-        cta: state.cta || "Clique e fale conosco",
-        clientId: state.clienteId || undefined,
-      };
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(bodyData));
 
-      const fd = new FormData();
-      fd.append("data", JSON.stringify(bodyData));
-
-      // Buscar logo do cliente e anexar
-      if (cliente?.logoUrl) {
-        try {
-          const logoRes = await fetch(cliente.logoUrl);
-          if (logoRes.ok) {
-            const logoBlob = await logoRes.blob();
-            fd.append("logo", logoBlob, "logo.png");
-          }
-        } catch {
-          // Logo indisponível, continua sem
-        }
-      }
-
-      // Anexar foto do produto se disponível
-      if (state.produtoFotoFile) {
-        fd.append("productImage", state.produtoFotoFile);
-      }
-
-      const res = await fetch("/api/ai/generate-creative", {
-        method: "POST",
-        body: fd,
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Erro ao gerar criativo");
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      setCriativoUrl(url);
-      setCriativoBlob(blob);
-      toast.success("Criativo gerado com sucesso!");
-
-      // Verificar textos automaticamente
+    if (cliente?.logoUrl) {
       try {
-        const expectedTexts = [
-          state.promocaoNome || "PROMOÇÃO",
-          cliente?.nome || "Loja",
-          state.produtoNome,
-          state.preco,
-          state.unidade,
-        ].filter(Boolean);
-
-        const verifyForm = new FormData();
-        verifyForm.append("image", blob, "criativo.png");
-        verifyForm.append("expectedTexts", JSON.stringify(expectedTexts));
-
-        const verifyRes = await fetch("/api/ai/verify-text", {
-          method: "POST",
-          body: verifyForm,
-        });
-
-        if (verifyRes.ok) {
-          const result = await verifyRes.json();
-          setVerificacao(result);
-          if (result.nota >= 8) {
-            toast.success(`Verificação de texto: nota ${result.nota}/10`);
-          } else {
-            toast.warning(`Verificação de texto: nota ${result.nota}/10 — possíveis erros detectados`);
-          }
+        const logoRes = await fetch(cliente.logoUrl);
+        if (logoRes.ok) {
+          const logoBlob = await logoRes.blob();
+          fd.append("logo", logoBlob, "logo.png");
         }
-      } catch {
-        // Verificação falhou, mas o criativo foi gerado
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar criativo");
-    } finally {
-      setGerandoCriativo(false);
+      } catch { /* continua sem logo */ }
     }
+
+    if (productImageFile) {
+      fd.append("productImage", productImageFile);
+    }
+
+    if (referenceBlob) {
+      fd.append("referenceImage", referenceBlob, "reference.png");
+    }
+
+    const res = await fetch("/api/ai/generate-creative", {
+      method: "POST",
+      body: fd,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Erro ao gerar criativo");
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    return { blob, url };
   };
 
-  const handleDownload = (format: string) => {
-    if (!criativoBlob) {
-      toast.error("Gere o criativo primeiro");
-      return;
+  // Step 4: Gerar 3 variações de estilo
+  const handleGerarVariacoes = async () => {
+    setGerandoVariacoes(true);
+    setVariations([]);
+    setSelectedVariation(null);
+    setVariacaoProgresso(0);
+
+    const results: VariationResult[] = [];
+
+    for (let v = 1; v <= 3; v++) {
+      try {
+        setVariacaoProgresso(v);
+        const { blob, url } = await generateSingleCreative(
+          state.produtoNome,
+          state.produtoSpec,
+          state.produtoFotoFile,
+          state.preco,
+          state.precoAnterior,
+          state.tipoPreco,
+          state.unidade,
+          state.condicao,
+          v,
+        );
+        results.push({ url, blob, variation: v });
+        setVariations([...results]);
+      } catch (err) {
+        toast.error(`Erro na variação ${v}: ${err instanceof Error ? err.message : "erro"}`);
+      }
     }
-    const ext = format === "jpg" ? "jpg" : "png";
-    const url = URL.createObjectURL(criativoBlob);
+
+    if (results.length > 0) {
+      toast.success(`${results.length} variação(ões) gerada(s)!`);
+    }
+    setGerandoVariacoes(false);
+  };
+
+  // Step 5: Gerar em lote
+  const handleGerarLote = async () => {
+    if (batchProducts.length === 0 || selectedVariation === null) return;
+
+    const refVariation = variations.find((v) => v.variation === selectedVariation);
+    if (!refVariation) return;
+
+    setGerandoLote(true);
+    setBatchResults([]);
+    setLoteProgresso(0);
+    setLoteTotalItens(batchProducts.length);
+
+    const results: BatchResult[] = [];
+
+    for (let i = 0; i < batchProducts.length; i++) {
+      const product = batchProducts[i];
+      setLoteProgresso(i + 1);
+
+      try {
+        // Buscar imagem do produto se disponível
+        let productFile: File | null = null;
+        if (product.imageUrl) {
+          try {
+            const imgRes = await fetch(product.imageUrl);
+            if (imgRes.ok) {
+              const imgBlob = await imgRes.blob();
+              productFile = new File([imgBlob], "product.png", { type: "image/png" });
+            }
+          } catch { /* continua sem imagem */ }
+        }
+
+        const { blob, url } = await generateSingleCreative(
+          product.name,
+          product.spec,
+          productFile,
+          product.price,
+          undefined,
+          state.tipoPreco,
+          product.unit,
+          state.condicao,
+          undefined,
+          refVariation.blob,
+        );
+
+        results.push({ product, url, blob });
+        setBatchResults([...results]);
+      } catch (err) {
+        toast.error(`Erro em "${product.name}": ${err instanceof Error ? err.message : "erro"}`);
+      }
+    }
+
+    if (results.length > 0) {
+      toast.success(`${results.length} criativo(s) gerado(s) em lote!`);
+    }
+    setGerandoLote(false);
+  };
+
+  // Helper: toggle produto no lote
+  const toggleBatchProduct = (product: ProdutoAPI) => {
+    setBatchProducts((prev) => {
+      const exists = prev.find((p) => p.id === product.id);
+      if (exists) return prev.filter((p) => p.id !== product.id);
+      return [...prev, {
+        id: product.id,
+        name: product.name,
+        spec: product.category || "",
+        imageUrl: product.image_treated_url || product.image_url,
+        price: state.preco, // preço padrão, pode ser editado
+        unit: state.unidade,
+      }];
+    });
+  };
+
+  // Download individual
+  const handleGerarCriativo = handleGerarVariacoes;
+
+  const handleDownload = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `criativo-${state.promocaoNome || "petron"}-${state.formato}.${ext}`;
+    a.download = `${name}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Download iniciado!");
+  };
+
+  const handleDownloadAll = () => {
+    // Download reference
+    const refVar = variations.find((v) => v.variation === selectedVariation);
+    if (refVar) {
+      handleDownload(refVar.blob, `criativo-${state.produtoNome}-referencia`);
+    }
+    // Download batch
+    batchResults.forEach((r) => {
+      setTimeout(() => {
+        handleDownload(r.blob, `criativo-${r.product.name}`);
+      }, 300);
+    });
+    toast.success("Downloads iniciados!");
   };
 
   const canAdvance = () => {
     if (step === 1 && !state.clienteId) return false;
     if (step === 3 && !state.produtoNome.trim()) return false;
+    if (step === 4 && selectedVariation === null) return false;
+    if (step === 5 && batchResults.length === 0 && !gerandoLote) return false;
     return true;
   };
 
@@ -973,7 +1099,7 @@ export default function CriarPage() {
             </Card>
           )}
 
-          {/* Step 4: Gerar Criativo com IA */}
+          {/* Step 4: Gerar 3 variações e escolher */}
           {step === 4 && (
             <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
               <CardHeader className="pb-4">
@@ -981,51 +1107,10 @@ export default function CriarPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
                     <Sparkles className="h-4 w-4 text-orange-500" />
                   </div>
-                  Gerar Criativo com IA
+                  Escolher Estilo
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Resumo dos dados */}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cliente</p>
-                    <p className="text-sm font-semibold">{cliente?.nome || "—"}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Promoção</p>
-                    <p className="text-sm font-semibold">{state.promocaoNome || "—"}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Produto</p>
-                    <p className="text-sm font-semibold">{state.produtoNome || "—"}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/50 p-3 space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Preço</p>
-                    <p className="text-sm font-semibold">R$ {state.preco || "0,00"} {state.unidade}</p>
-                  </div>
-                </div>
-
-                {/* Tipografia do cliente */}
-                {cliente?.fonts && (cliente.fonts.title || cliente.fonts.price || cliente.fonts.description) && (
-                  <div className="rounded-xl border border-border/50 p-3 space-y-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Type className="h-3 w-3" />
-                      Tipografia
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {cliente.fonts.title && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.title}</span>
-                      )}
-                      {cliente.fonts.price && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.price}</span>
-                      )}
-                      {cliente.fonts.description && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted/50">{cliente.fonts.description}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <Label>Formato</Label>
                   <Select
@@ -1047,86 +1132,283 @@ export default function CriarPage() {
 
                 <Button
                   className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                  onClick={handleGerarCriativo}
-                  disabled={gerandoCriativo}
+                  onClick={handleGerarVariacoes}
+                  disabled={gerandoVariacoes}
                 >
-                  {gerandoCriativo ? (
+                  {gerandoVariacoes ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Gerando criativo com Imagen 4 Ultra...
+                      Gerando variação {variacaoProgresso}/3...
+                    </>
+                  ) : variations.length > 0 ? (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar novamente (3 estilos)
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Gerar Criativo com IA
+                      Gerar 3 estilos diferentes
                     </>
                   )}
                 </Button>
 
-                {/* Verificação de texto */}
-                {verificacao && (
-                  <div className={`rounded-xl border p-3 ${verificacao.nota >= 8 ? "border-green-500/30 bg-green-500/5" : "border-orange-500/30 bg-orange-500/5"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold">Verificação de texto</p>
-                      <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/15 text-green-500" : "bg-orange-500/15 text-orange-500"}`}>
-                        Nota: {verificacao.nota}/10
-                      </Badge>
+                {/* Progresso */}
+                {gerandoVariacoes && (
+                  <div className="w-full bg-muted/30 rounded-full h-2">
+                    <div
+                      className="bg-orange-500 h-2 rounded-full transition-all"
+                      style={{ width: `${(variacaoProgresso / 3) * 100}%` }}
+                    />
+                  </div>
+                )}
+
+                {/* Grid de 3 variações */}
+                {variations.length > 0 && (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Escolha o estilo que será usado como referência para gerar os demais criativos:
+                    </p>
+                    <div className="grid gap-3 grid-cols-3">
+                      {variations.map((v) => (
+                        <button
+                          key={v.variation}
+                          type="button"
+                          onClick={() => setSelectedVariation(v.variation)}
+                          className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                            selectedVariation === v.variation
+                              ? "border-orange-500 shadow-lg shadow-orange-500/20 scale-[1.02]"
+                              : "border-border/50 hover:border-orange-500/40"
+                          }`}
+                        >
+                          <img
+                            src={v.url}
+                            alt={`Estilo ${v.variation}`}
+                            className="w-full aspect-square object-cover"
+                          />
+                          {selectedVariation === v.variation && (
+                            <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg">
+                              <Check className="h-3.5 w-3.5" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                            <span className="text-white text-xs font-medium">Estilo {v.variation}</span>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    {verificacao.erros.length > 0 && (
-                      <div className="space-y-1">
-                        {verificacao.erros.map((e, i) => (
-                          <p key={i} className="text-[11px] text-muted-foreground">
-                            <span className="text-destructive">●</span> Esperado: &quot;{e.esperado}&quot; → Encontrado: &quot;{e.encontrado}&quot;
-                          </p>
+                    {selectedVariation && (
+                      <p className="text-xs text-center text-orange-500 font-medium">
+                        Estilo {selectedVariation} selecionado como referência
+                      </p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 5: Geração em Lote */}
+          {step === 5 && (
+            <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
+                    <Package className="h-4 w-4 text-orange-500" />
+                  </div>
+                  Geração em Lote
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Selecione os produtos para gerar criativos seguindo o estilo escolhido. Cada produto será gerado com o mesmo layout de referência.
+                </p>
+
+                {/* Seleção de produtos */}
+                {loadingProdutos ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : produtosCliente.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Nenhum produto cadastrado para este cliente.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{batchProducts.length} produto(s) selecionado(s)</span>
+                      <div className="flex gap-2">
+                        {[5, 10, 20].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => {
+                              const prods = produtosCliente.slice(0, n).map((p) => ({
+                                id: p.id,
+                                name: p.name,
+                                spec: p.category || "",
+                                imageUrl: p.image_treated_url || p.image_url,
+                                price: state.preco,
+                                unit: state.unidade,
+                              }));
+                              setBatchProducts(prods);
+                            }}
+                            className="text-orange-500 hover:text-orange-400 font-medium"
+                          >
+                            Top {n}
+                          </button>
                         ))}
                       </div>
-                    )}
+                    </div>
+
+                    <div className="grid gap-2 max-h-[300px] overflow-y-auto">
+                      {produtosCliente.map((p) => {
+                        const isSelected = batchProducts.some((bp) => bp.id === p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => toggleBatchProduct(p)}
+                            className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
+                              isSelected
+                                ? "border-orange-500/50 bg-orange-500/5"
+                                : "border-border/40 hover:border-border"
+                            }`}
+                          >
+                            <div
+                              className={`flex h-5 w-5 items-center justify-center rounded border shrink-0 transition-colors ${
+                                isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-border"
+                              }`}
+                            >
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            {(p.image_treated_url || p.image_url) ? (
+                              <div className="h-10 w-10 rounded-lg border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={p.image_treated_url || p.image_url || ""} alt={p.name} className="max-h-full max-w-full object-contain" />
+                              </div>
+                            ) : (
+                              <div className="h-10 w-10 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
+                                <Package className="h-4 w-4 text-muted-foreground/50" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{p.name}</p>
+                              {p.category && <p className="text-[11px] text-muted-foreground">{p.category}</p>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Botão gerar lote */}
+                <Button
+                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                  onClick={handleGerarLote}
+                  disabled={gerandoLote || batchProducts.length === 0}
+                >
+                  {gerandoLote ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Gerando {loteProgresso}/{loteTotalItens}...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar {batchProducts.length} criativo(s) em lote
+                    </>
+                  )}
+                </Button>
+
+                {/* Progresso do lote */}
+                {gerandoLote && (
+                  <div className="w-full bg-muted/30 rounded-full h-2">
+                    <div
+                      className="bg-orange-500 h-2 rounded-full transition-all"
+                      style={{ width: `${(loteProgresso / loteTotalItens) * 100}%` }}
+                    />
+                  </div>
+                )}
+
+                {/* Resultados do lote */}
+                {batchResults.length > 0 && (
+                  <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                    {batchResults.map((r) => (
+                      <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50">
+                        <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
+                        <div className="p-2 text-center">
+                          <p className="text-xs font-medium truncate">{r.product.name}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* Step 5: Exportar */}
-          {step === 5 && (
+          {/* Step 6: Exportar */}
+          {step === 6 && (
             <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
                     <Download className="h-4 w-4 text-orange-500" />
                   </div>
-                  Exportar Criativo
+                  Exportar Criativos
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {criativoUrl ? (
+                {(variations.length > 0 || batchResults.length > 0) ? (
                   <>
                     <p className="text-sm text-muted-foreground">
-                      Seu criativo está pronto! Clique para baixar.
+                      {1 + batchResults.length} criativo(s) pronto(s) para download.
                     </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Button
-                        className="h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                        onClick={() => handleDownload("png")}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Baixar PNG
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-12 btn-micro"
-                        onClick={() => handleDownload("jpg")}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Baixar JPG
-                      </Button>
+
+                    <Button
+                      className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                      onClick={handleDownloadAll}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Baixar todos ({1 + batchResults.length} arquivos)
+                    </Button>
+
+                    {/* Grid de todos os criativos */}
+                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                      {/* Referência */}
+                      {selectedVariation && variations.find((v) => v.variation === selectedVariation) && (
+                        <div className="rounded-xl overflow-hidden border-2 border-orange-500/30">
+                          <img
+                            src={variations.find((v) => v.variation === selectedVariation)!.url}
+                            alt="Referência"
+                            className="w-full aspect-square object-cover"
+                          />
+                          <div className="p-2 text-center">
+                            <p className="text-xs font-medium truncate">{state.produtoNome}</p>
+                            <Badge variant="secondary" className="text-[9px] bg-orange-500/10 text-orange-500 border-0 mt-1">
+                              Referência
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {/* Lote */}
+                      {batchResults.map((r) => (
+                        <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50">
+                          <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
+                          <div className="p-2 text-center">
+                            <p className="text-xs font-medium truncate">{r.product.name}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </>
                 ) : (
                   <div className="text-center py-8">
                     <Sparkles className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      Volte ao passo anterior e gere o criativo primeiro.
+                      Volte aos passos anteriores para gerar os criativos.
                     </p>
                   </div>
                 )}
@@ -1145,13 +1427,13 @@ export default function CriarPage() {
               <ChevronLeft className="h-4 w-4 mr-1" />
               Voltar
             </Button>
-            {step < 5 ? (
+            {step < 6 ? (
               <Button
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                onClick={() => setStep((s) => Math.min(5, s + 1))}
+                onClick={() => setStep((s) => Math.min(6, s + 1))}
                 disabled={!canAdvance()}
               >
-                Próximo
+                {step === 5 ? "Exportar" : "Próximo"}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
@@ -1160,28 +1442,6 @@ export default function CriarPage() {
           </div>
         </div>
 
-        {/* Imagem gerada (exibida inline após geração) */}
-        {criativoUrl && (
-          <Card className="rounded-2xl border-border/50 bg-card/80 overflow-hidden">
-            <CardContent className="p-4">
-              <img
-                src={criativoUrl}
-                alt="Criativo gerado"
-                className="w-full max-w-md mx-auto rounded-xl border border-border/50"
-              />
-              <div className="flex items-center justify-center gap-3 mt-3">
-                <Badge variant="secondary" className="text-[10px] bg-orange-500/10 text-orange-600 border-0">
-                  {state.formato}
-                </Badge>
-                {verificacao && (
-                  <Badge variant="secondary" className={`text-[10px] ${verificacao.nota >= 8 ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500"}`}>
-                    Texto: {verificacao.nota}/10
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

@@ -45,7 +45,10 @@ export async function POST(request: Request) {
       cta,
       clientId,
       promotionId,
+      styleVariation,
     } = JSON.parse(dataRaw);
+
+    const referenceImageFile = formData.get("referenceImage") as File | null;
 
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
@@ -77,8 +80,36 @@ export async function POST(request: Request) {
     // Formato
     const isVertical = format === "1080x1350" || format === "1080x1920";
 
+    // Adicionar referência de estilo se fornecida
+    if (referenceImageFile) {
+      const refBuffer = await referenceImageFile.arrayBuffer();
+      const refB64 = Buffer.from(refBuffer).toString("base64");
+      // referenceImage será adicionada como primeira imagem
+      // com instrução explícita no prompt
+    }
+
+    // Variação de estilo
+    const styleInstructions: Record<number, string> = {
+      1: "STYLE VARIATION: Use a DIAGONAL SPLIT background with bold geometric shapes. Upper-left in brand color, lower-right in white/light. Add floating 3D confetti elements.",
+      2: "STYLE VARIATION: Use a GRADIENT WAVE background flowing from brand color to dark. Place product on a subtle platform/pedestal. Use glassmorphism effects on price tags.",
+      3: "STYLE VARIATION: Use a RADIAL BURST background centered behind the product. Starburst pattern in brand color. Add metallic ribbon accents and particle effects.",
+    };
+    const variationPrompt = styleVariation ? (styleInstructions[styleVariation] || "") : "";
+
     // Montar parts com imagens reais
     const parts: Array<Record<string, unknown>> = [];
+
+    // Adicionar referência de estilo se fornecida
+    if (referenceImageFile) {
+      const refBuffer = await referenceImageFile.arrayBuffer();
+      const refB64 = Buffer.from(refBuffer).toString("base64");
+      parts.push({
+        inlineData: {
+          mimeType: referenceImageFile.type || "image/png",
+          data: refB64,
+        },
+      });
+    }
 
     // Adicionar logo se disponível
     if (logoFile) {
@@ -108,17 +139,26 @@ export async function POST(request: Request) {
     const ctaText = cta || "Clique e fale conosco";
 
     // Montar prompt
+    // Montar instruções de imagem considerando referência
+    const hasRef = !!referenceImageFile;
+    const imageList: string[] = [];
+    let imgIdx = 1;
+
+    if (hasRef) {
+      imageList.push(`IMAGE ${imgIdx} is a STYLE REFERENCE — match its exact visual style, layout composition, color treatment, and design elements`);
+      imgIdx++;
+    }
+    if (logoFile) {
+      imageList.push(`IMAGE ${imgIdx} is the store LOGO — use it EXACTLY without modification`);
+      imgIdx++;
+    }
+    if (productImageFile) {
+      imageList.push(`IMAGE ${imgIdx} is the REAL PRODUCT PHOTO — display it large with realistic shadow`);
+    }
+
     let imageInstructions = "";
-    if (logoFile && productImageFile) {
-      imageInstructions = `I provided 2 images: IMAGE 1 is the store LOGO. IMAGE 2 is the REAL PRODUCT PHOTO.
-CRITICAL RULES FOR IMAGES:
-- Use MY EXACT LOGO from image 1 without any modification, recreation or reinterpretation
-- Use the EXACT PRODUCT from image 2 as the main product visual, displayed large with realistic shadow
-- Do NOT generate a different logo or product - use EXACTLY what I provided`;
-    } else if (logoFile) {
-      imageInstructions = `I provided the store LOGO image. CRITICAL: Use MY EXACT LOGO without modification.`;
-    } else if (productImageFile) {
-      imageInstructions = `I provided the REAL PRODUCT PHOTO. CRITICAL: Use this EXACT PRODUCT image large with shadow.`;
+    if (imageList.length > 0) {
+      imageInstructions = `I provided ${imageList.length} image(s):\n${imageList.map((s) => `- ${s}`).join("\n")}\nCRITICAL: Use EXACTLY the images I provided. Do NOT recreate or reinterpret them.`;
     }
 
     // Montar instruções de tipografia
@@ -168,7 +208,9 @@ BACKGROUND DESIGN:
 - Upper section in brand color, lower section lighter/white for product info readability
 - Add floating decorative 3D elements (confetti, ribbons, geometric shapes) for energy
 
-STYLE: Premium Brazilian retail advertising for building materials stores (like Leroy Merlin, C&C promotional flyers). Ultra high quality, bold, vibrant, commercial. The design should look like it was made by a professional graphic designer.`;
+STYLE: Premium Brazilian retail advertising for building materials stores (like Leroy Merlin, C&C promotional flyers). Ultra high quality, bold, vibrant, commercial. The design should look like it was made by a professional graphic designer.
+${hasRef ? "\nIMPORTANT: Match the EXACT visual style, layout, and design language from the reference image I provided. Keep the same composition approach, color treatment, and graphic elements — only change the product, text, and pricing information." : ""}
+${variationPrompt}`;
 
     parts.push({ text: prompt });
 
