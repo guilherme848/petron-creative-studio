@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2, Download, Check, Building2, MapPin } from "lucide-react";
+import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2, Download, Check, Building2, MapPin, Filter } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -53,11 +53,20 @@ interface ErpAccount {
   already_imported: boolean;
 }
 
+const MATCON = "Material de Construção";
+
+function isMatCon(segment: string | null): boolean {
+  if (!segment) return false;
+  const s = segment.toLowerCase();
+  return s.includes("material") || s.includes("construção") || s.includes("matcon") || s.includes("home center");
+}
+
 export default function ClientesPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [segmentFilter, setSegmentFilter] = useState<string>("matcon");
 
   // Import state
   const [importOpen, setImportOpen] = useState(false);
@@ -65,6 +74,7 @@ export default function ClientesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadingErp, setLoadingErp] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importNicheFilter, setImportNicheFilter] = useState<string>("matcon");
 
   async function fetchClients() {
     try {
@@ -125,10 +135,15 @@ export default function ClientesPage() {
   }
 
   function selectAllAvailable() {
-    const available = erpAccounts.filter((a) => !a.already_imported).map((a) => a.id);
+    const available = filteredErpAccounts.filter((a) => !a.already_imported).map((a) => a.id);
     setSelectedIds((prev) => {
-      if (prev.size === available.length) return new Set();
-      return new Set(available);
+      const allSelected = available.every((id) => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        available.forEach((id) => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...available]);
     });
   }
 
@@ -163,7 +178,36 @@ export default function ClientesPage() {
     }
   }
 
-  const availableCount = erpAccounts.filter((a) => !a.already_imported).length;
+  // Client list filter
+  const segments = Array.from(new Set(clients.map((c) => c.segment).filter(Boolean))) as string[];
+  const matconClients = clients.filter((c) => isMatCon(c.segment));
+  const otherClients = clients.filter((c) => !isMatCon(c.segment));
+  const filteredClients =
+    segmentFilter === "all"
+      ? clients
+      : segmentFilter === "matcon"
+      ? matconClients
+      : clients.filter((c) => c.segment === segmentFilter);
+
+  // Import dialog filter
+  const importNiches = Array.from(new Set(erpAccounts.map((a) => a.niche).filter(Boolean))) as string[];
+  const filteredErpAccounts =
+    importNicheFilter === "all"
+      ? erpAccounts
+      : importNicheFilter === "matcon"
+      ? erpAccounts.filter((a) => isMatCon(a.niche))
+      : erpAccounts.filter((a) => a.niche === importNicheFilter);
+
+  // Sort: MatCon first in all lists
+  const sortedErpAccounts = [...filteredErpAccounts].sort((a, b) => {
+    const aMatCon = isMatCon(a.niche);
+    const bMatCon = isMatCon(b.niche);
+    if (aMatCon && !bMatCon) return -1;
+    if (!aMatCon && bMatCon) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const availableCount = filteredErpAccounts.filter((a) => !a.already_imported).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -209,25 +253,69 @@ export default function ClientesPage() {
             </div>
           ) : (
             <>
+              {/* Filtro por nicho no import */}
+              {erpAccounts.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setImportNicheFilter("matcon")}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                      importNicheFilter === "matcon"
+                        ? "bg-orange-500 text-white"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    MatCon ({erpAccounts.filter((a) => isMatCon(a.niche)).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImportNicheFilter("all")}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                      importNicheFilter === "all"
+                        ? "bg-foreground text-background"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Todos ({erpAccounts.length})
+                  </button>
+                  {importNiches.filter((n) => !isMatCon(n)).map((niche) => (
+                    <button
+                      key={niche}
+                      type="button"
+                      onClick={() => setImportNicheFilter(niche)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                        importNicheFilter === niche
+                          ? "bg-foreground text-background"
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {niche} ({erpAccounts.filter((a) => a.niche === niche).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {availableCount > 0 && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground pb-1">
-                  <span>{selectedIds.size} de {availableCount} selecionado(s)</span>
+                  <span>{selectedIds.size} selecionado(s) de {availableCount} disponível(is)</span>
                   <button
                     type="button"
                     className="text-orange-500 hover:text-orange-400 font-medium"
                     onClick={selectAllAvailable}
                   >
-                    {selectedIds.size === availableCount ? "Desmarcar todos" : "Selecionar todos"}
+                    {availableCount > 0 && filteredErpAccounts.filter((a) => !a.already_imported).every((a) => selectedIds.has(a.id))
+                      ? "Desmarcar filtrados"
+                      : "Selecionar filtrados"}
                   </button>
                 </div>
               )}
               <div className="overflow-y-auto flex-1 -mx-4 px-4 space-y-1.5 max-h-[50vh]">
-                {erpAccounts.length === 0 ? (
+                {sortedErpAccounts.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    Nenhuma conta ativa encontrada no ERP.
+                    Nenhuma conta encontrada para este filtro.
                   </p>
                 ) : (
-                  erpAccounts.map((account) => {
+                  sortedErpAccounts.map((account) => {
                     const isSelected = selectedIds.has(account.id);
                     const isImported = account.already_imported;
 
@@ -259,6 +347,11 @@ export default function ClientesPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium truncate">{account.name}</span>
+                            {isMatCon(account.niche) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 font-medium shrink-0">
+                                MatCon
+                              </span>
+                            )}
                             {isImported && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
                                 Importado
@@ -313,6 +406,48 @@ export default function ClientesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Filtro por segmento */}
+      {!loading && !error && clients.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={() => setSegmentFilter("matcon")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              segmentFilter === "matcon"
+                ? "bg-orange-500 text-white shadow-sm"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            MatCon ({matconClients.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSegmentFilter("all")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              segmentFilter === "all"
+                ? "bg-foreground text-background shadow-sm"
+                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Todos ({clients.length})
+          </button>
+          {otherClients.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSegmentFilter("outros")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                segmentFilter === "outros"
+                  ? "bg-foreground text-background shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Outros ({otherClients.length})
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -349,7 +484,7 @@ export default function ClientesPage() {
       {/* Lista de clientes */}
       {!loading && !error && clients.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((client) => {
+          {(segmentFilter === "outros" ? otherClients : filteredClients).map((client) => {
             const brand = client.brand_configs?.[0];
             const colors = brand?.colors || [];
 
@@ -380,9 +515,16 @@ export default function ClientesPage() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold truncate">
-                        {client.name}
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-sm font-semibold truncate">
+                          {client.name}
+                        </h3>
+                        {isMatCon(client.segment) && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 font-medium shrink-0">
+                            MatCon
+                          </span>
+                        )}
+                      </div>
                       {client.segment && (
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
                           {client.segment}
