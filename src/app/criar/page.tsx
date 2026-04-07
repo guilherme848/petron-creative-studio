@@ -106,7 +106,10 @@ interface BatchProduct {
   spec: string;
   imageUrl: string | null;
   price: string;
+  previousPrice: string;
+  priceType: string;
   unit: string;
+  condition: string;
 }
 
 interface BatchResult {
@@ -440,10 +443,10 @@ export default function CriarPage() {
           product.spec,
           productFile,
           product.price,
-          undefined,
-          state.tipoPreco,
+          product.priceType === "de-por" ? product.previousPrice : undefined,
+          product.priceType,
           product.unit,
-          state.condicao,
+          product.condition,
           undefined,
           refVariation.blob,
         );
@@ -471,10 +474,20 @@ export default function CriarPage() {
         name: product.name,
         spec: product.category || "",
         imageUrl: product.image_treated_url || product.image_url,
-        price: state.preco, // preço padrão, pode ser editado
+        price: state.preco,
+        previousPrice: "",
+        priceType: state.tipoPreco,
         unit: state.unidade,
+        condition: state.condicao,
       }];
     });
+  };
+
+  // Helper: editar campo de um produto do lote
+  const updateBatchProduct = (id: string, field: keyof BatchProduct, value: string) => {
+    setBatchProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+    );
   };
 
   // Download individual
@@ -1259,7 +1272,10 @@ export default function CriarPage() {
                                 spec: p.category || "",
                                 imageUrl: p.image_treated_url || p.image_url,
                                 price: state.preco,
+                                previousPrice: "",
+                                priceType: state.tipoPreco,
                                 unit: state.unidade,
+                                condition: state.condicao,
                               }));
                               setBatchProducts(prods);
                             }}
@@ -1271,7 +1287,8 @@ export default function CriarPage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-2 max-h-[300px] overflow-y-auto">
+                    {/* Lista para selecionar produtos */}
+                    <div className="grid gap-1.5 max-h-[200px] overflow-y-auto">
                       {produtosCliente.map((p) => {
                         const isSelected = batchProducts.some((bp) => bp.id === p.id);
                         return (
@@ -1279,37 +1296,134 @@ export default function CriarPage() {
                             key={p.id}
                             type="button"
                             onClick={() => toggleBatchProduct(p)}
-                            className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
+                            className={`flex items-center gap-2.5 p-2 rounded-lg border text-left transition-all text-xs ${
                               isSelected
                                 ? "border-orange-500/50 bg-orange-500/5"
                                 : "border-border/40 hover:border-border"
                             }`}
                           >
                             <div
-                              className={`flex h-5 w-5 items-center justify-center rounded border shrink-0 transition-colors ${
+                              className={`flex h-4 w-4 items-center justify-center rounded border shrink-0 transition-colors ${
                                 isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-border"
                               }`}
                             >
-                              {isSelected && <Check className="h-3 w-3" />}
+                              {isSelected && <Check className="h-2.5 w-2.5" />}
                             </div>
                             {(p.image_treated_url || p.image_url) ? (
-                              <div className="h-10 w-10 rounded-lg border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                              <div className="h-8 w-8 rounded border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={p.image_treated_url || p.image_url || ""} alt={p.name} className="max-h-full max-w-full object-contain" />
                               </div>
                             ) : (
-                              <div className="h-10 w-10 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
-                                <Package className="h-4 w-4 text-muted-foreground/50" />
+                              <div className="h-8 w-8 rounded bg-muted/30 flex items-center justify-center shrink-0">
+                                <Package className="h-3.5 w-3.5 text-muted-foreground/50" />
                               </div>
                             )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{p.name}</p>
-                              {p.category && <p className="text-[11px] text-muted-foreground">{p.category}</p>}
-                            </div>
+                            <span className="font-medium truncate">{p.name}</span>
+                            {p.category && <span className="text-muted-foreground ml-auto shrink-0">{p.category}</span>}
                           </button>
                         );
                       })}
                     </div>
+
+                    {/* Tabela editável dos produtos selecionados */}
+                    {batchProducts.length > 0 && (
+                      <div className="space-y-2">
+                        <Separator />
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Editar detalhes ({batchProducts.length} produto{batchProducts.length > 1 ? "s" : ""})
+                        </p>
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto">
+                          {batchProducts.map((bp, idx) => (
+                            <div key={bp.id} className="rounded-xl border border-border/50 p-3 space-y-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded">{idx + 1}</span>
+                                <span className="text-sm font-semibold truncate flex-1">{bp.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setBatchProducts((prev) => prev.filter((p) => p.id !== bp.id))}
+                                  className="text-muted-foreground hover:text-destructive p-0.5"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <div className="grid gap-2 grid-cols-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground font-medium">Tipo preço</label>
+                                  <Select
+                                    value={bp.priceType}
+                                    onValueChange={(val) => updateBatchProduct(bp.id, "priceType", val ?? "")}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs mt-0.5">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {TIPOS_PRECO.map((t) => (
+                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground font-medium">Preço</label>
+                                  <Input
+                                    value={bp.price}
+                                    onChange={(e) => updateBatchProduct(bp.id, "price", e.target.value)}
+                                    placeholder="29,90"
+                                    className="h-8 text-xs font-bold mt-0.5"
+                                  />
+                                </div>
+                              </div>
+                              {bp.priceType === "de-por" && (
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground font-medium">Preço anterior (De)</label>
+                                  <Input
+                                    value={bp.previousPrice}
+                                    onChange={(e) => updateBatchProduct(bp.id, "previousPrice", e.target.value)}
+                                    placeholder="49,90"
+                                    className="h-8 text-xs mt-0.5"
+                                  />
+                                </div>
+                              )}
+                              <div className="grid gap-2 grid-cols-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground font-medium">Unidade</label>
+                                  <Select
+                                    value={bp.unit}
+                                    onValueChange={(val) => updateBatchProduct(bp.id, "unit", val ?? "")}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs mt-0.5">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {UNIDADES.map((u) => (
+                                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground font-medium">Condição</label>
+                                  <Select
+                                    value={bp.condition}
+                                    onValueChange={(val) => updateBatchProduct(bp.id, "condition", val ?? "")}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs mt-0.5">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {FORMAS_PAGAMENTO.map((f) => (
+                                        <SelectItem key={f} value={f}>{f}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 

@@ -209,7 +209,24 @@ BACKGROUND DESIGN:
 - Add floating decorative 3D elements (confetti, ribbons, geometric shapes) for energy
 
 STYLE: Premium Brazilian retail advertising for building materials stores (like Leroy Merlin, C&C promotional flyers). Ultra high quality, bold, vibrant, commercial. The design should look like it was made by a professional graphic designer.
-${hasRef ? "\nIMPORTANT: Match the EXACT visual style, layout, and design language from the reference image I provided. Keep the same composition approach, color treatment, and graphic elements — only change the product, text, and pricing information." : ""}
+
+PROFESSIONAL QUALITY REQUIREMENTS:
+- Ensure perfect visual hierarchy: promotion name > product name > price > details
+- Use consistent spacing and alignment — nothing should look misaligned or cramped
+- All text must have proper contrast against its background (use text shadows or backing shapes)
+- Price must be the dominant visual element after the product photo
+- Colors must harmonize with the brand palette — never clash or look amateur
+- The overall composition must feel balanced, polished, and print-ready
+${hasRef ? `
+REFERENCE-BASED GENERATION (CRITICAL):
+You MUST replicate the EXACT visual style from the reference image I provided:
+- Same layout grid and element positioning (where the logo, product, price, and CTA are placed)
+- Same background treatment (gradient direction, color zones, geometric shapes)
+- Same typographic hierarchy and text sizing ratios
+- Same decorative elements style (confetti, ribbons, shapes, shadows)
+- Same color application pattern (which areas use the brand color vs neutral)
+- ONLY change: the product photo, product name, price text, and specification text
+- Everything else (composition, style, vibe) must be IDENTICAL to the reference` : ""}
 ${variationPrompt}`;
 
     parts.push({ text: prompt });
