@@ -217,18 +217,28 @@ export default function CriarPage() {
 
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
-  // Buscar produtos do cliente selecionado ao entrar no step 3 ou 5
+  // Buscar produtos ao entrar no step 3 ou 5 — do cliente + sem vínculo
   useEffect(() => {
     if ((step === 3 || step === 5) && state.clienteId) {
       async function fetchProducts() {
         setLoadingProdutos(true);
         try {
-          const res = await fetch(`/api/products?client_id=${state.clienteId}`);
-          if (!res.ok) throw new Error("Erro ao buscar produtos");
-          const data = await res.json();
-          setProdutosCliente(data);
+          // Buscar produtos do cliente E produtos sem vínculo (client_id null)
+          const [resClient, resAll] = await Promise.all([
+            fetch(`/api/products?client_id=${state.clienteId}`),
+            fetch(`/api/products`),
+          ]);
+          const clientData = resClient.ok ? await resClient.json() : [];
+          const allData = resAll.ok ? await resAll.json() : [];
+
+          // Combinar: produtos do cliente + produtos sem vínculo (sem duplicar)
+          const clientIds = new Set(clientData.map((p: ProdutoAPI) => p.id));
+          const unlinked = allData.filter(
+            (p: ProdutoAPI) => !clientIds.has(p.id)
+          );
+          setProdutosCliente([...clientData, ...unlinked]);
         } catch {
-          console.error("Erro ao carregar produtos do cliente");
+          console.error("Erro ao carregar produtos");
         } finally {
           setLoadingProdutos(false);
         }
