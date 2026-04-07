@@ -7,8 +7,10 @@ const supabase = createClient(
 );
 
 const WEBHOOK_SECRET = process.env.ERP_WEBHOOK_SECRET;
-const ERP_API_URL = process.env.PETRON_ERP_API_URL;
-const ERP_API_KEY = process.env.PETRON_ERP_API_KEY;
+
+// ERP Supabase — para buscar dados completos
+const ERP_SUPABASE_URL = process.env.PETRON_ERP_SUPABASE_URL;
+const ERP_SERVICE_ROLE_KEY = process.env.PETRON_ERP_SERVICE_ROLE_KEY;
 
 function buildAddress(account: Record<string, unknown>): string | null {
   const parts = [
@@ -33,7 +35,6 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const { type, record } = payload;
 
-    // Só processar INSERT e UPDATE em accounts com status active
     if (!record || !record.id) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
@@ -57,15 +58,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ skipped: true, reason: "already exists" });
     }
 
-    // Buscar dados completos da conta no ERP (o payload do trigger pode não ter todos os campos)
+    // Buscar dados completos da conta no ERP via Supabase client
     let account = record;
-    if (ERP_API_URL && ERP_API_KEY) {
-      const erpRes = await fetch(`${ERP_API_URL}/accounts/${accountId}`, {
-        headers: { "x-api-key": ERP_API_KEY },
-      });
-      if (erpRes.ok) {
-        account = await erpRes.json();
-      }
+    if (ERP_SUPABASE_URL && ERP_SERVICE_ROLE_KEY) {
+      const erp = createClient(ERP_SUPABASE_URL, ERP_SERVICE_ROLE_KEY);
+      const { data } = await erp
+        .from("accounts")
+        .select("*")
+        .eq("id", accountId)
+        .single();
+      if (data) account = data;
     }
 
     if (existing) {
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ created: true, name: account.name });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }

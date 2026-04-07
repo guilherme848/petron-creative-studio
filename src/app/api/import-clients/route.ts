@@ -6,8 +6,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const ERP_API_URL = process.env.PETRON_ERP_API_URL;
-const ERP_API_KEY = process.env.PETRON_ERP_API_KEY;
+// ERP Supabase — acesso direto via PostgREST (service role)
+const ERP_SUPABASE_URL = process.env.PETRON_ERP_SUPABASE_URL;
+const ERP_SERVICE_ROLE_KEY = process.env.PETRON_ERP_SERVICE_ROLE_KEY;
+
+function erpClient() {
+  if (!ERP_SUPABASE_URL || !ERP_SERVICE_ROLE_KEY) return null;
+  return createClient(ERP_SUPABASE_URL, ERP_SERVICE_ROLE_KEY);
+}
 
 function buildAddress(account: Record<string, unknown>): string | null {
   const parts = [
@@ -22,28 +28,30 @@ function buildAddress(account: Record<string, unknown>): string | null {
 
 // GET — lista contas do ERP para seleção
 export async function GET() {
-  if (!ERP_API_URL || !ERP_API_KEY) {
+  const erp = erpClient();
+  if (!erp) {
     return NextResponse.json(
-      { error: "Integração com ERP não configurada. Verifique PETRON_ERP_API_URL e PETRON_ERP_API_KEY." },
+      { error: "Integração com ERP não configurada. Verifique PETRON_ERP_SUPABASE_URL e PETRON_ERP_SERVICE_ROLE_KEY." },
       { status: 500 }
     );
   }
 
   try {
     // Buscar contas ativas do ERP
-    const erpRes = await fetch(`${ERP_API_URL}/accounts?status=active&deleted_at=null&limit=200`, {
-      headers: { "x-api-key": ERP_API_KEY },
-    });
+    const { data: erpAccounts, error: erpError } = await erp
+      .from("accounts")
+      .select("id, name, niche, cpf_cnpj, contact_name, contact_phone, city, state, street, street_number, neighborhood")
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("name")
+      .limit(200);
 
-    if (!erpRes.ok) {
-      const err = await erpRes.json().catch(() => ({}));
+    if (erpError) {
       return NextResponse.json(
-        { error: `Erro ao buscar contas do ERP: ${err.error || erpRes.statusText}` },
-        { status: erpRes.status }
+        { error: `Erro ao buscar contas do ERP: ${erpError.message}` },
+        { status: 500 }
       );
     }
-
-    const erpAccounts = await erpRes.json();
 
     // Buscar clientes já importados no Creative Studio
     const { data: existingClients } = await supabase
@@ -56,7 +64,7 @@ export async function GET() {
     );
 
     // Marcar quais já foram importados
-    const accounts = erpAccounts.map((acc: Record<string, unknown>) => ({
+    const accounts = (erpAccounts || []).map((acc: Record<string, unknown>) => ({
       id: acc.id,
       name: acc.name,
       niche: acc.niche,
@@ -69,7 +77,7 @@ export async function GET() {
     }));
 
     return NextResponse.json(accounts);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Erro de conexão com o ERP" },
       { status: 500 }
@@ -79,7 +87,8 @@ export async function GET() {
 
 // POST — importar contas selecionadas
 export async function POST(request: Request) {
-  if (!ERP_API_URL || !ERP_API_KEY) {
+  const erp = erpClient();
+  if (!erp) {
     return NextResponse.json(
       { error: "Integração com ERP não configurada." },
       { status: 500 }
@@ -96,36 +105,37 @@ export async function POST(request: Request) {
       );
     }
 
+    // Buscar todos os dados de uma vez
+    const { data: erpAccounts, error: erpError } = await erp
+      .from("accounts")
+      .select("*")
+      .in("id", account_ids);
+
+    if (erpError || !erpAccounts) {
+      return NextResponse.json(
+        { error: "Erro ao buscar dados do ERP" },
+        { status: 500 }
+      );
+    }
+
     const results: { imported: string[]; skipped: string[]; errors: string[] } = {
       imported: [],
       skipped: [],
       errors: [],
     };
 
-    for (const accountId of account_ids) {
+    for (const account of erpAccounts) {
       // Verificar se já foi importado
       const { data: existing } = await supabase
         .from("clients")
         .select("id")
-        .eq("erp_account_id", accountId)
+        .eq("erp_account_id", account.id)
         .maybeSingle();
 
       if (existing) {
-        results.skipped.push(accountId);
+        results.skipped.push(account.id);
         continue;
       }
-
-      // Buscar dados completos da conta no ERP
-      const erpRes = await fetch(`${ERP_API_URL}/accounts/${accountId}`, {
-        headers: { "x-api-key": ERP_API_KEY },
-      });
-
-      if (!erpRes.ok) {
-        results.errors.push(accountId);
-        continue;
-      }
-
-      const account = await erpRes.json();
 
       // Criar cliente no Creative Studio
       const { data: client, error: clientError } = await supabase
@@ -137,13 +147,13 @@ export async function POST(request: Request) {
           contact: account.contact_name || null,
           address: buildAddress(account),
           whatsapp_link: account.contact_phone || null,
-          erp_account_id: accountId,
+          erp_account_id: account.id,
         })
         .select()
         .single();
 
       if (clientError) {
-        results.errors.push(accountId);
+        results.errors.push(account.id);
         continue;
       }
 
@@ -159,7 +169,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(results);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Erro interno ao importar clientes" },
       { status: 500 }
