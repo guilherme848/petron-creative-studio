@@ -81,6 +81,7 @@ export async function POST(request: Request) {
           contact: account.contact_name || null,
           address: buildAddress(account),
           whatsapp_link: account.contact_phone || null,
+          service: account.service_contracted || null,
         })
         .eq("erp_account_id", accountId);
 
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
         address: buildAddress(account),
         whatsapp_link: account.contact_phone || null,
         erp_account_id: accountId,
+        service: account.service_contracted || null,
       })
       .select()
       .single();

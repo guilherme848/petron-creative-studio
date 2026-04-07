@@ -148,6 +148,7 @@ export async function POST(request: Request) {
           address: buildAddress(account),
           whatsapp_link: account.contact_phone || null,
           erp_account_id: account.id,
+          service: account.service_contracted || null,
         })
         .select()
         .single();

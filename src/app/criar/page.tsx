@@ -56,9 +56,18 @@ interface ClienteAPI {
   id: string;
   nome: string;
   segment: string | null;
+  service: string | null;
   logoUrl: string | null;
   cores: string[];
   fonts: ClienteFonts;
+}
+
+// Serviços que incluem tráfego pago
+const SERVICOS_TRAFEGO = ["Start", "Growth", "Performance", "Escala", "Ouro", "Diamante"];
+
+function hasTrafegoPago(service: string | null): boolean {
+  if (!service) return false;
+  return SERVICOS_TRAFEGO.some((s) => service.toLowerCase() === s.toLowerCase());
 }
 
 interface ProdutoAPI {
@@ -148,6 +157,7 @@ export default function CriarPage() {
             id: string;
             name: string;
             segment?: string | null;
+            service?: string | null;
             brand_configs?: {
               logo_url?: string | null;
               colors?: { hex: string }[];
@@ -157,6 +167,7 @@ export default function CriarPage() {
             id: c.id,
             nome: c.name,
             segment: c.segment || null,
+            service: c.service || null,
             logoUrl: c.brand_configs?.[0]?.logo_url || null,
             cores: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || ["#F97316", "#FFFFFF", "#333333"],
             fonts: {
@@ -601,21 +612,26 @@ export default function CriarPage() {
               return low.includes("material") || low.includes("construção") || low.includes("matcon") || low.includes("home center");
             };
 
-            // Filtrar por busca + nicho
+            // Base: só clientes com tráfego pago (filtro principal)
+            const trafegoClients = clientes.filter((c) => hasTrafegoPago(c.service));
+            const conteudoClients = clientes.filter((c) => !hasTrafegoPago(c.service));
+
+            // Filtrar por nicho dentro dos de tráfego
             const nichoFiltered = clienteNichoFilter === "all"
-              ? clientes
+              ? (clienteNichoFilter === "all" ? clientes : trafegoClients)
               : clienteNichoFilter === "matcon"
-              ? clientes.filter((c) => isMatCon(c.segment))
-              : clientes.filter((c) => c.segment === clienteNichoFilter);
+              ? trafegoClients.filter((c) => isMatCon(c.segment))
+              : clienteNichoFilter === "todos-trafego"
+              ? trafegoClients
+              : clienteNichoFilter === "sem-trafego"
+              ? conteudoClients
+              : trafegoClients.filter((c) => c.segment === clienteNichoFilter);
 
             const filtered = nichoFiltered.filter((c) =>
               c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
             );
 
-            const matconCount = clientes.filter((c) => isMatCon(c.segment)).length;
-            const otherSegments = Array.from(new Set(
-              clientes.map((c) => c.segment).filter((s) => s && !isMatCon(s))
-            )) as string[];
+            const matconTrafegoCount = trafegoClients.filter((c) => isMatCon(c.segment)).length;
 
             const selectedClient = clientes.find((c) => c.id === state.clienteId);
 
@@ -733,7 +749,7 @@ export default function CriarPage() {
                           )}
                         </div>
 
-                        {/* Filtro por nicho */}
+                        {/* Filtro por serviço/nicho */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
@@ -744,8 +760,32 @@ export default function CriarPage() {
                                 : "bg-muted/50 text-muted-foreground hover:bg-muted"
                             }`}
                           >
-                            MatCon ({matconCount})
+                            MatCon + Tráfego ({matconTrafegoCount})
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setClienteNichoFilter("todos-trafego")}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                              clienteNichoFilter === "todos-trafego"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            Com tráfego ({trafegoClients.length})
+                          </button>
+                          {conteudoClients.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setClienteNichoFilter("sem-trafego")}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                                clienteNichoFilter === "sem-trafego"
+                                  ? "bg-foreground text-background shadow-sm"
+                                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              Só conteúdo ({conteudoClients.length})
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setClienteNichoFilter("all")}
@@ -757,20 +797,6 @@ export default function CriarPage() {
                           >
                             Todos ({clientes.length})
                           </button>
-                          {otherSegments.map((seg) => (
-                            <button
-                              key={seg}
-                              type="button"
-                              onClick={() => setClienteNichoFilter(seg)}
-                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
-                                clienteNichoFilter === seg
-                                  ? "bg-foreground text-background shadow-sm"
-                                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                              }`}
-                            >
-                              {seg}
-                            </button>
-                          ))}
                         </div>
 
                         {/* Contagem */}
@@ -825,8 +851,10 @@ export default function CriarPage() {
                                           />
                                         ))}
                                       </div>
-                                      {c.segment && (
-                                        <span className="text-[10px] text-muted-foreground truncate">{c.segment}</span>
+                                      {c.service && (
+                                        <span className={`text-[10px] truncate ${hasTrafegoPago(c.service) ? "text-orange-500/70" : "text-muted-foreground"}`}>
+                                          {c.service}
+                                        </span>
                                       )}
                                     </div>
                                   </div>
