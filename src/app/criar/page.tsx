@@ -55,6 +55,7 @@ interface ClienteFonts {
 interface ClienteAPI {
   id: string;
   nome: string;
+  segment: string | null;
   logoUrl: string | null;
   cores: string[];
   fonts: ClienteFonts;
@@ -146,6 +147,7 @@ export default function CriarPage() {
           data.map((c: {
             id: string;
             name: string;
+            segment?: string | null;
             brand_configs?: {
               logo_url?: string | null;
               colors?: { hex: string }[];
@@ -154,6 +156,7 @@ export default function CriarPage() {
           }) => ({
             id: c.id,
             nome: c.name,
+            segment: c.segment || null,
             logoUrl: c.brand_configs?.[0]?.logo_url || null,
             cores: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || ["#F97316", "#FFFFFF", "#333333"],
             fonts: {
@@ -203,6 +206,7 @@ export default function CriarPage() {
   const [criativoBlob, setCriativoBlob] = useState<Blob | null>(null);
   const [verificacao, setVerificacao] = useState<{ nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] } | null>(null);
   const [clienteSearch, setClienteSearch] = useState("");
+  const [clienteNichoFilter, setClienteNichoFilter] = useState<string>("matcon");
   const [usarProdutoCadastrado, setUsarProdutoCadastrado] = useState(false);
 
   // Step 4: 3 variações
@@ -591,9 +595,28 @@ export default function CriarPage() {
         <div className="space-y-5">
           {/* Step 1: Cliente */}
           {step === 1 && (() => {
-            const filtered = clientes.filter((c) =>
+            const isMatCon = (s: string | null) => {
+              if (!s) return false;
+              const low = s.toLowerCase();
+              return low.includes("material") || low.includes("construção") || low.includes("matcon") || low.includes("home center");
+            };
+
+            // Filtrar por busca + nicho
+            const nichoFiltered = clienteNichoFilter === "all"
+              ? clientes
+              : clienteNichoFilter === "matcon"
+              ? clientes.filter((c) => isMatCon(c.segment))
+              : clientes.filter((c) => c.segment === clienteNichoFilter);
+
+            const filtered = nichoFiltered.filter((c) =>
               c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
             );
+
+            const matconCount = clientes.filter((c) => isMatCon(c.segment)).length;
+            const otherSegments = Array.from(new Set(
+              clientes.map((c) => c.segment).filter((s) => s && !isMatCon(s))
+            )) as string[];
+
             const selectedClient = clientes.find((c) => c.id === state.clienteId);
 
             return (
@@ -710,11 +733,51 @@ export default function CriarPage() {
                           )}
                         </div>
 
+                        {/* Filtro por nicho */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setClienteNichoFilter("matcon")}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                              clienteNichoFilter === "matcon"
+                                ? "bg-orange-500 text-white shadow-sm"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            MatCon ({matconCount})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setClienteNichoFilter("all")}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                              clienteNichoFilter === "all"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            Todos ({clientes.length})
+                          </button>
+                          {otherSegments.map((seg) => (
+                            <button
+                              key={seg}
+                              type="button"
+                              onClick={() => setClienteNichoFilter(seg)}
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                                clienteNichoFilter === seg
+                                  ? "bg-foreground text-background shadow-sm"
+                                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {seg}
+                            </button>
+                          ))}
+                        </div>
+
                         {/* Contagem */}
                         <p className="text-[11px] text-muted-foreground">
                           {filtered.length === clientes.length
                             ? `${clientes.length} clientes`
-                            : `${filtered.length} de ${clientes.length} clientes`}
+                            : `${filtered.length} de ${clientes.length}`}
                         </p>
 
                         {/* Lista de clientes */}
@@ -722,53 +785,59 @@ export default function CriarPage() {
                           <div className="text-center py-8">
                             <Search className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
                             <p className="text-sm text-muted-foreground">
-                              Nenhum cliente encontrado para &quot;{clienteSearch}&quot;
+                              Nenhum cliente encontrado.
                             </p>
                           </div>
                         ) : (
-                          <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
-                            {filtered.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => {
-                                  update({ clienteId: c.id });
-                                  setClienteSearch("");
-                                }}
-                                className="w-full flex items-center gap-3 rounded-lg border border-border/40 p-3 text-left transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.02] hover:shadow-sm group"
-                              >
-                                {c.logoUrl ? (
-                                  <div className="h-10 w-10 rounded-lg border border-border/30 bg-white flex items-center justify-center overflow-hidden p-1 shrink-0">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={c.logoUrl} alt={c.nome} className="max-h-full max-w-full object-contain" />
-                                  </div>
-                                ) : (
-                                  <div
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0"
-                                    style={{ backgroundColor: c.cores[0] }}
-                                  >
-                                    {c.nome.slice(0, 2).toUpperCase()}
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-semibold truncate group-hover:text-orange-500 transition-colors">{c.nome}</h4>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <div className="flex gap-0.5">
-                                      {c.cores.slice(0, 5).map((cor, i) => (
-                                        <div
-                                          key={i}
-                                          className="h-3 w-3 rounded-full border border-border/50"
-                                          style={{ backgroundColor: cor }}
-                                        />
-                                      ))}
+                          <div className="relative">
+                            <div className="space-y-1 max-h-[340px] overflow-y-auto pr-1 custom-scrollbar">
+                              {filtered.map((c) => (
+                                <button
+                                  key={c.id}
+                                  onClick={() => {
+                                    update({ clienteId: c.id });
+                                    setClienteSearch("");
+                                  }}
+                                  className="w-full flex items-center gap-3 rounded-lg border border-border/40 p-2.5 text-left transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.03] group"
+                                >
+                                  {c.logoUrl ? (
+                                    <div className="h-9 w-9 rounded-lg border border-border/30 bg-white flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={c.logoUrl} alt={c.nome} className="max-h-full max-w-full object-contain" />
                                     </div>
-                                    {c.fonts.title && (
-                                      <span className="text-[10px] text-muted-foreground">{c.fonts.title}</span>
-                                    )}
+                                  ) : (
+                                    <div
+                                      className="flex h-9 w-9 items-center justify-center rounded-lg text-white font-bold text-[10px] shrink-0"
+                                      style={{ backgroundColor: c.cores[0] }}
+                                    >
+                                      {c.nome.slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-[13px] font-semibold truncate group-hover:text-orange-500 transition-colors">{c.nome}</h4>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <div className="flex gap-0.5">
+                                        {c.cores.slice(0, 4).map((cor, i) => (
+                                          <div
+                                            key={i}
+                                            className="h-2.5 w-2.5 rounded-full border border-border/40"
+                                            style={{ backgroundColor: cor }}
+                                          />
+                                        ))}
+                                      </div>
+                                      {c.segment && (
+                                        <span className="text-[10px] text-muted-foreground truncate">{c.segment}</span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-orange-500/50 transition-colors shrink-0" />
-                              </button>
-                            ))}
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/20 group-hover:text-orange-500/50 transition-colors shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                            {/* Fade bottom para indicar mais itens */}
+                            {filtered.length > 6 && (
+                              <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-card/80 to-transparent pointer-events-none rounded-b-xl" />
+                            )}
                           </div>
                         )}
                       </>
