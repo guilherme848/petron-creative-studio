@@ -116,6 +116,7 @@ export async function POST(request: Request) {
         segment: clientData.segment || null,
         cnpj: clientData.cnpj || null,
         contact: clientData.contact || null,
+        phone: clientData.phone || null,
         address: clientData.address || null,
         whatsapp_link: clientData.whatsapp_link || null,
       })
@@ -222,6 +223,7 @@ export async function PUT(request: Request) {
         segment: clientData.segment || null,
         cnpj: clientData.cnpj || null,
         contact: clientData.contact || null,
+        phone: clientData.phone || null,
         address: clientData.address || null,
         whatsapp_link: clientData.whatsapp_link || null,
       })

@@ -49,6 +49,7 @@ interface ClienteForm {
   segmento: string;
   documento: string;
   contato: string;
+  phone: string;
   endereco: string;
   linkWhatsapp: string;
   logoUrl: string | null;
@@ -81,6 +82,7 @@ export default function NovoClientePage() {
     segmento: "",
     documento: "",
     contato: "",
+    phone: "",
     endereco: "",
     linkWhatsapp: "",
     logoUrl: null,
@@ -234,6 +236,7 @@ export default function NovoClientePage() {
         segment: form.segmento || null,
         cnpj: form.documento || null,
         contact: form.contato || null,
+        phone: form.phone || null,
         address: form.endereco || null,
         whatsapp_link: form.linkWhatsapp || null,
         colors: form.cores.map((c) => ({ label: c.label, hex: c.hex })),
@@ -347,14 +350,26 @@ export default function NovoClientePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="contato">Contato (Telefone / WhatsApp)</Label>
+                  <Label htmlFor="contato">Contato</Label>
                   <Input
                     id="contato"
-                    placeholder="(00) 00000-0000"
+                    placeholder="Nome do contato"
                     value={form.contato}
                     onChange={(e) => updateField("contato", e.target.value)}
                     className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Celular / WhatsApp</Label>
+                  <Input
+                    id="phone"
+                    placeholder="(00) 00000-0000"
+                    value={form.phone}
+                    onChange={(e) => updateField("phone", e.target.value)}
+                    className="mt-1.5 h-[42px] focus-visible:border-orange-500 focus-visible:ring-orange-500/30"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Aparece no criativo junto ao botão de WhatsApp</p>
                 </div>
 
                 <div>

@@ -43,6 +43,8 @@ export async function POST(request: Request) {
       endDate,
       format,
       cta,
+      phone,
+      storeAddress,
       clientId,
       promotionId,
       styleVariation,
@@ -198,6 +200,8 @@ PRODUCT IMAGE (right side, LARGE - 35-40% of poster width):
 ${productImageFile ? "The EXACT product photo I provided, displayed prominently with realistic drop shadow and slight perspective" : `A photorealistic ${productName} with shadow`}
 
 CTA BUTTON: A bright green WhatsApp-style rounded button with bold white text: "${ctaText}". Positioned below the product area.
+${phone ? `PHONE NUMBER: Display "${phone}" in small but legible text near the CTA button (below or beside it). Use a phone/WhatsApp icon next to it.` : ""}
+${storeAddress ? `STORE ADDRESS: Display "${storeAddress}" in small text in the footer area, near the validity dates. Use a location pin icon next to it.` : ""}
 
 FOOTER: ${validityBlock ? `A ${primaryColor} colored bar with white text: ${validityBlock}` : `Small text: IMAGEM MERAMENTE ILUSTRATIVA`}
 

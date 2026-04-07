@@ -57,6 +57,8 @@ interface ClienteAPI {
   nome: string;
   segment: string | null;
   service: string | null;
+  phone: string | null;
+  address: string | null;
   logoUrl: string | null;
   cores: string[];
   fonts: ClienteFonts;
@@ -100,6 +102,11 @@ interface CreativeState {
   unidade: string;
   condicao: string;
   cta: string;
+  // Info de contato no criativo
+  showPhone: boolean;
+  phoneOverride: string;
+  showAddress: boolean;
+  addressOverride: string;
   // Step 4+
   formato: string;
 }
@@ -158,6 +165,8 @@ export default function CriarPage() {
             name: string;
             segment?: string | null;
             service?: string | null;
+            phone?: string | null;
+            address?: string | null;
             brand_configs?: {
               logo_url?: string | null;
               colors?: { hex: string }[];
@@ -168,6 +177,8 @@ export default function CriarPage() {
             nome: c.name,
             segment: c.segment || null,
             service: c.service || null,
+            phone: c.phone || null,
+            address: c.address || null,
             logoUrl: c.brand_configs?.[0]?.logo_url || null,
             cores: c.brand_configs?.[0]?.colors?.map((cor: { hex: string }) => cor.hex) || ["#F97316", "#FFFFFF", "#333333"],
             fonts: {
@@ -203,6 +214,10 @@ export default function CriarPage() {
     unidade: "M²",
     condicao: "À vista",
     cta: "Clique e fale conosco",
+    showPhone: true,
+    phoneOverride: "",
+    showAddress: false,
+    addressOverride: "",
     formato: "1080x1080",
   });
 
@@ -346,6 +361,8 @@ export default function CriarPage() {
       endDate: state.dataFim || undefined,
       format: state.formato,
       cta: state.cta || "Clique e fale conosco",
+      phone: state.showPhone ? (state.phoneOverride || cliente?.phone || undefined) : undefined,
+      storeAddress: state.showAddress ? (state.addressOverride || cliente?.address || undefined) : undefined,
       clientId: state.clienteId || undefined,
       styleVariation,
     };
@@ -1302,9 +1319,86 @@ export default function CriarPage() {
                       <SelectItem value="Peça já seu orçamento">Peça já seu orçamento</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Botão verde estilo WhatsApp no rodapé do criativo.
-                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Telefone no criativo */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Telefone no criativo</Label>
+                    <button
+                      type="button"
+                      onClick={() => update({ showPhone: !state.showPhone })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${state.showPhone ? "bg-orange-500" : "bg-muted"}`}
+                    >
+                      <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${state.showPhone ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  {state.showPhone && (
+                    <div className="space-y-1.5">
+                      {cliente?.phone && (
+                        <button
+                          type="button"
+                          onClick={() => update({ phoneOverride: cliente.phone || "" })}
+                          className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                            state.phoneOverride === cliente.phone
+                              ? "border-orange-500/50 bg-orange-500/5"
+                              : "border-border/40 hover:border-orange-500/30"
+                          }`}
+                        >
+                          <span className="text-muted-foreground">Cadastrado:</span>{" "}
+                          <span className="font-medium">{cliente.phone}</span>
+                        </button>
+                      )}
+                      <Input
+                        placeholder="Ou digite outro número..."
+                        value={state.phoneOverride}
+                        onChange={(e) => update({ phoneOverride: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Aparece próximo ao botão de WhatsApp</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Endereço no criativo */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Endereço no criativo</Label>
+                    <button
+                      type="button"
+                      onClick={() => update({ showAddress: !state.showAddress })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${state.showAddress ? "bg-orange-500" : "bg-muted"}`}
+                    >
+                      <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${state.showAddress ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  {state.showAddress && (
+                    <div className="space-y-1.5">
+                      {cliente?.address && (
+                        <button
+                          type="button"
+                          onClick={() => update({ addressOverride: cliente.address || "" })}
+                          className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
+                            state.addressOverride === cliente.address
+                              ? "border-orange-500/50 bg-orange-500/5"
+                              : "border-border/40 hover:border-orange-500/30"
+                          }`}
+                        >
+                          <span className="text-muted-foreground">Cadastrado:</span>{" "}
+                          <span className="font-medium">{cliente.address}</span>
+                        </button>
+                      )}
+                      <Input
+                        placeholder="Ou digite outro endereço..."
+                        value={state.addressOverride}
+                        onChange={(e) => update({ addressOverride: e.target.value })}
+                        className="h-9 text-xs"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Aparece no rodapé do criativo</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
