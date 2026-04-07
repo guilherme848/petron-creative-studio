@@ -4,13 +4,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Users, ArrowRight, Loader2, MoreHorizontal, Pencil, Trash2, Download, Check, Building2, MapPin } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -33,11 +41,30 @@ interface Client {
   brand_configs: BrandConfig[];
 }
 
+interface ErpAccount {
+  id: string;
+  name: string;
+  niche: string | null;
+  cpf_cnpj: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  city: string | null;
+  state: string | null;
+  already_imported: boolean;
+}
+
 export default function ClientesPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Import state
+  const [importOpen, setImportOpen] = useState(false);
+  const [erpAccounts, setErpAccounts] = useState<ErpAccount[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loadingErp, setLoadingErp] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   async function fetchClients() {
     try {
@@ -68,6 +95,76 @@ export default function ClientesPage() {
     }
   }
 
+  async function openImportDialog() {
+    setImportOpen(true);
+    setLoadingErp(true);
+    setSelectedIds(new Set());
+    try {
+      const res = await fetch("/api/import-clients");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao buscar contas do ERP");
+      }
+      const data = await res.json();
+      setErpAccounts(data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao conectar com o ERP");
+      setImportOpen(false);
+    } finally {
+      setLoadingErp(false);
+    }
+  }
+
+  function toggleAccount(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllAvailable() {
+    const available = erpAccounts.filter((a) => !a.already_imported).map((a) => a.id);
+    setSelectedIds((prev) => {
+      if (prev.size === available.length) return new Set();
+      return new Set(available);
+    });
+  }
+
+  async function handleImport() {
+    if (selectedIds.size === 0) return;
+    setImporting(true);
+    try {
+      const res = await fetch("/api/import-clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_ids: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error("Erro ao importar");
+      const result = await res.json();
+
+      if (result.imported.length > 0) {
+        toast.success(`${result.imported.length} cliente(s) importado(s) com sucesso`);
+      }
+      if (result.skipped.length > 0) {
+        toast.info(`${result.skipped.length} já importado(s), pulado(s)`);
+      }
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} erro(s) na importação`);
+      }
+
+      setImportOpen(false);
+      fetchClients();
+    } catch {
+      toast.error("Erro ao importar clientes");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const availableCount = erpAccounts.filter((a) => !a.already_imported).length;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -77,13 +174,144 @@ export default function ClientesPage() {
             Gerencie os clientes e suas identidades visuais.
           </p>
         </div>
-        <Link href="/clientes/novo">
-          <Button className="bg-gradient-to-r from-[#F97316] to-[#f43f5e] hover:from-[#ea6c10] hover:to-[#e0354f] text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 border-0 btn-micro">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Cliente
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="border-border/50 hover:border-orange-500/30 hover:bg-orange-500/5 btn-micro"
+            onClick={openImportDialog}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Importar do ERP
           </Button>
-        </Link>
+          <Link href="/clientes/novo">
+            <Button className="bg-gradient-to-r from-[#F97316] to-[#f43f5e] hover:from-[#ea6c10] hover:to-[#e0354f] text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 border-0 btn-micro">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Cliente
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Dialog de importação do ERP */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Importar do ERP Petron</DialogTitle>
+            <DialogDescription>
+              Selecione os clientes ativos do app.agenciapetron.com.br para importar.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingErp ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Buscando contas do ERP...</span>
+            </div>
+          ) : (
+            <>
+              {availableCount > 0 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground pb-1">
+                  <span>{selectedIds.size} de {availableCount} selecionado(s)</span>
+                  <button
+                    type="button"
+                    className="text-orange-500 hover:text-orange-400 font-medium"
+                    onClick={selectAllAvailable}
+                  >
+                    {selectedIds.size === availableCount ? "Desmarcar todos" : "Selecionar todos"}
+                  </button>
+                </div>
+              )}
+              <div className="overflow-y-auto flex-1 -mx-4 px-4 space-y-1.5 max-h-[50vh]">
+                {erpAccounts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhuma conta ativa encontrada no ERP.
+                  </p>
+                ) : (
+                  erpAccounts.map((account) => {
+                    const isSelected = selectedIds.has(account.id);
+                    const isImported = account.already_imported;
+
+                    return (
+                      <button
+                        key={account.id}
+                        type="button"
+                        disabled={isImported}
+                        onClick={() => toggleAccount(account.id)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                          isImported
+                            ? "opacity-50 cursor-not-allowed border-border/30 bg-muted/20"
+                            : isSelected
+                            ? "border-orange-500/50 bg-orange-500/5 shadow-sm"
+                            : "border-border/40 hover:border-border hover:bg-muted/30"
+                        }`}
+                      >
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded border shrink-0 transition-colors ${
+                            isImported
+                              ? "border-muted-foreground/30 bg-muted/50"
+                              : isSelected
+                              ? "border-orange-500 bg-orange-500 text-white"
+                              : "border-border"
+                          }`}
+                        >
+                          {(isSelected || isImported) && <Check className="h-3 w-3" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{account.name}</span>
+                            {isImported && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
+                                Importado
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                            {account.niche && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {account.niche}
+                              </span>
+                            )}
+                            {(account.city || account.state) && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {[account.city, account.state].filter(Boolean).join("/")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={selectedIds.size === 0 || importing}
+              className="bg-gradient-to-r from-[#F97316] to-[#f43f5e] hover:from-[#ea6c10] hover:to-[#e0354f] text-white border-0"
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Importar {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Loading */}
       {loading && (

@@ -10,6 +10,7 @@ create table if not exists clients (
   contact text,
   address text,
   whatsapp_link text,
+  erp_account_id uuid unique,
   created_at timestamptz default now()
 );
 
