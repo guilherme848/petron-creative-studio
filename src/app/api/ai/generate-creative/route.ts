@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       clientId,
       promotionId,
       styleVariation,
+      adjustmentPrompt,
     } = JSON.parse(dataRaw);
 
     const referenceImageFile = formData.get("referenceImage") as File | null;
@@ -231,7 +232,8 @@ You MUST replicate the EXACT visual style from the reference image I provided:
 - Same color application pattern (which areas use the brand color vs neutral)
 - ONLY change: the product photo, product name, price text, and specification text
 - Everything else (composition, style, vibe) must be IDENTICAL to the reference` : ""}
-${variationPrompt}`;
+${variationPrompt}
+${adjustmentPrompt ? `\nUSER ADJUSTMENT REQUEST (CRITICAL — apply these changes to the reference image):\n${adjustmentPrompt}\n\nApply ONLY the requested changes. Keep everything else identical to the reference image.` : ""}`;
 
     parts.push({ text: prompt });
 

@@ -40,7 +40,12 @@ import {
   Loader2,
   Search,
   Type,
+  Pencil,
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO } from "@/lib/constants";
 
@@ -250,6 +255,13 @@ export default function CriarPage() {
   const [loteProgresso, setLoteProgresso] = useState(0);
   const [loteTotalItens, setLoteTotalItens] = useState(0);
 
+  // Verificação de texto e ajustes
+  const [verifications, setVerifications] = useState<Map<string, { nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] }>>(new Map());
+  const [adjustingId, setAdjustingId] = useState<string | null>(null);
+  const [adjustPrompt, setAdjustPrompt] = useState("");
+  const [adjustingLoading, setAdjustingLoading] = useState(false);
+  const [exportedIds, setExportedIds] = useState<Set<string>>(new Set());
+
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
   // Buscar produtos ao entrar no step 3 ou 5 — do cliente + sem vínculo
@@ -406,6 +418,93 @@ export default function CriarPage() {
     return { blob, url, creativeId };
   };
 
+  // Verificar texto de um criativo via Gemini Vision
+  const verifyCreativeText = async (blob: Blob, key: string, expectedTexts: string[]) => {
+    try {
+      const verifyForm = new FormData();
+      verifyForm.append("image", blob, "criativo.png");
+      verifyForm.append("expectedTexts", JSON.stringify(expectedTexts));
+      const verifyRes = await fetch("/api/ai/verify-text", { method: "POST", body: verifyForm });
+      if (verifyRes.ok) {
+        const result = await verifyRes.json();
+        setVerifications((prev) => new Map(prev).set(key, result));
+      }
+    } catch { /* verificação falhou, não bloqueia */ }
+  };
+
+  // Ajustar criativo individual com prompt do usuário
+  const handleAdjustCreative = async (
+    originalBlob: Blob,
+    productName: string,
+    key: string,
+    isVariation: boolean,
+    variationIndex?: number,
+  ) => {
+    if (!adjustPrompt.trim()) return;
+    setAdjustingLoading(true);
+
+    try {
+      const fd = new FormData();
+      fd.append("referenceImage", originalBlob, "original.png");
+
+      const bodyData = {
+        clientName: cliente?.nome || "Loja",
+        clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
+        clientFonts: cliente?.fonts || null,
+        promotionName: state.promocaoNome || "PROMOÇÃO",
+        productName,
+        format: state.formato,
+        cta: state.cta || "Clique e fale conosco",
+        phone: state.showPhone ? (state.phoneOverride || cliente?.phone || undefined) : undefined,
+        storeAddress: state.showAddress ? (state.addressOverride || cliente?.address || undefined) : undefined,
+        clientId: state.clienteId || undefined,
+        adjustmentPrompt: adjustPrompt,
+      };
+
+      fd.append("data", JSON.stringify(bodyData));
+
+      if (cliente?.logoUrl) {
+        try {
+          const logoRes = await fetch(cliente.logoUrl);
+          if (logoRes.ok) {
+            const logoBlob = await logoRes.blob();
+            fd.append("logo", logoBlob, "logo.png");
+          }
+        } catch {}
+      }
+
+      const res = await fetch("/api/ai/generate-creative", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Erro ao ajustar");
+
+      const creativeId = res.headers.get("X-Creative-Id") || null;
+      const newBlob = await res.blob();
+      const newUrl = URL.createObjectURL(newBlob);
+
+      // Atualizar o criativo na lista correta
+      if (isVariation && variationIndex !== undefined) {
+        setVariations((prev) =>
+          prev.map((v) => v.variation === variationIndex ? { ...v, url: newUrl, blob: newBlob, creativeId } : v)
+        );
+      } else {
+        setBatchResults((prev) =>
+          prev.map((r) => r.product.id === key ? { ...r, url: newUrl, blob: newBlob, creativeId } : r)
+        );
+      }
+
+      // Verificar texto do novo criativo
+      const expectedTexts = [productName, state.preco].filter(Boolean);
+      await verifyCreativeText(newBlob, key, expectedTexts);
+
+      toast.success("Criativo ajustado!");
+      setAdjustingId(null);
+      setAdjustPrompt("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao ajustar");
+    } finally {
+      setAdjustingLoading(false);
+    }
+  };
+
   // Step 4: Gerar 3 variações de estilo
   const handleGerarVariacoes = async () => {
     setGerandoVariacoes(true);
@@ -431,6 +530,9 @@ export default function CriarPage() {
         );
         results.push({ url, blob, variation: v, creativeId });
         setVariations([...results]);
+        // Verificar texto automaticamente
+        const expectedTexts = [state.produtoNome, state.preco, state.promocaoNome].filter(Boolean);
+        verifyCreativeText(blob, `var-${v}`, expectedTexts);
       } catch (err) {
         toast.error(`Erro na variação ${v}: ${err instanceof Error ? err.message : "erro"}`);
       }
@@ -488,6 +590,9 @@ export default function CriarPage() {
 
         results.push({ product, url, blob, creativeId });
         setBatchResults([...results]);
+        // Verificar texto automaticamente
+        const expectedTexts = [product.name, product.price].filter(Boolean);
+        verifyCreativeText(blob, product.id, expectedTexts);
       } catch (err) {
         toast.error(`Erro em "${product.name}": ${err instanceof Error ? err.message : "erro"}`);
       }
@@ -570,6 +675,7 @@ export default function CriarPage() {
         handleDownload(r.blob, `criativo-${r.product.name}`);
       }, 300 * (i + 1));
     });
+    setExportedIds(new Set(idsToApprove));
     toast.success(`${idsToApprove.length} criativo(s) aprovado(s) e exportado(s)!`);
   };
 
@@ -1760,17 +1866,62 @@ export default function CriarPage() {
                   </div>
                 )}
 
-                {/* Resultados do lote */}
+                {/* Resultados do lote com verificação e ajuste */}
                 {batchResults.length > 0 && (
                   <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-                    {batchResults.map((r) => (
-                      <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50">
-                        <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
-                        <div className="p-2 text-center">
-                          <p className="text-xs font-medium truncate">{r.product.name}</p>
+                    {batchResults.map((r) => {
+                      const verification = verifications.get(r.product.id);
+                      const isAdjusting = adjustingId === r.product.id;
+                      return (
+                        <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50 bg-card/50">
+                          <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
+                          <div className="p-2 space-y-1.5">
+                            <p className="text-xs font-medium truncate">{r.product.name}</p>
+                            {/* Verificação */}
+                            {verification && (
+                              <div className="flex items-center gap-1">
+                                {verification.nota >= 8 ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                                ) : (
+                                  <AlertTriangle className="h-3 w-3 text-orange-500 shrink-0" />
+                                )}
+                                <span className={`text-[10px] font-medium ${verification.nota >= 8 ? "text-green-500" : "text-orange-500"}`}>
+                                  Texto: {verification.nota}/10
+                                </span>
+                              </div>
+                            )}
+                            {/* Botão ajustar */}
+                            <button
+                              type="button"
+                              onClick={() => { setAdjustingId(isAdjusting ? null : r.product.id); setAdjustPrompt(""); }}
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-orange-500 transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              {isAdjusting ? "Cancelar" : "Ajustar"}
+                            </button>
+                            {isAdjusting && (
+                              <div className="space-y-1.5">
+                                <Textarea
+                                  value={adjustPrompt}
+                                  onChange={(e) => setAdjustPrompt(e.target.value)}
+                                  placeholder="Descreva o ajuste... Ex: aumentar o preço, corrigir nome do produto, mudar cor de fundo"
+                                  className="text-xs min-h-[60px] resize-none"
+                                />
+                                <Button
+                                  size="sm"
+                                  className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+                                  onClick={() => handleAdjustCreative(r.blob, r.product.name, r.product.id, false)}
+                                  disabled={adjustingLoading || !adjustPrompt.trim()}
+                                >
+                                  {adjustingLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                  Regenerar com ajuste
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -1806,30 +1957,132 @@ export default function CriarPage() {
                     {/* Grid de todos os criativos */}
                     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                       {/* Referência */}
-                      {selectedVariation && variations.find((v) => v.variation === selectedVariation) && (
-                        <div className="rounded-xl overflow-hidden border-2 border-orange-500/30">
-                          <img
-                            src={variations.find((v) => v.variation === selectedVariation)!.url}
-                            alt="Referência"
-                            className="w-full aspect-square object-cover"
-                          />
-                          <div className="p-2 text-center">
-                            <p className="text-xs font-medium truncate">{state.produtoNome}</p>
-                            <Badge variant="secondary" className="text-[9px] bg-orange-500/10 text-orange-500 border-0 mt-1">
-                              Referência
-                            </Badge>
+                      {selectedVariation && (() => {
+                        const refVar = variations.find((v) => v.variation === selectedVariation);
+                        if (!refVar) return null;
+                        const isExported = refVar.creativeId ? exportedIds.has(refVar.creativeId) : false;
+                        const verification = verifications.get(`var-${selectedVariation}`);
+                        const isAdjusting = adjustingId === `ref-${selectedVariation}`;
+                        return (
+                          <div className="rounded-xl overflow-hidden border-2 border-orange-500/30 bg-card/50">
+                            <div className="relative">
+                              <img src={refVar.url} alt="Referência" className="w-full aspect-square object-cover" />
+                              {isExported && (
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-bold shadow-lg">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Aprovado
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-2 space-y-1.5">
+                              <p className="text-xs font-medium truncate">{state.produtoNome}</p>
+                              <Badge variant="secondary" className="text-[9px] bg-orange-500/10 text-orange-500 border-0">
+                                Referência
+                              </Badge>
+                              {verification && (
+                                <div className="flex items-center gap-1">
+                                  {verification.nota >= 8 ? (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                  )}
+                                  <span className={`text-[10px] font-medium ${verification.nota >= 8 ? "text-green-500" : "text-orange-500"}`}>
+                                    Texto: {verification.nota}/10
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => { setAdjustingId(isAdjusting ? null : `ref-${selectedVariation}`); setAdjustPrompt(""); }}
+                                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-orange-500 transition-colors"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                {isAdjusting ? "Cancelar" : "Ajustar"}
+                              </button>
+                              {isAdjusting && (
+                                <div className="space-y-1.5">
+                                  <Textarea
+                                    value={adjustPrompt}
+                                    onChange={(e) => setAdjustPrompt(e.target.value)}
+                                    placeholder="Descreva o ajuste..."
+                                    className="text-xs min-h-[60px] resize-none"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+                                    onClick={() => handleAdjustCreative(refVar.blob, state.produtoNome, `ref-${selectedVariation}`, true, selectedVariation)}
+                                    disabled={adjustingLoading || !adjustPrompt.trim()}
+                                  >
+                                    {adjustingLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                    Regenerar
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                       {/* Lote */}
-                      {batchResults.map((r) => (
-                        <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50">
-                          <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
-                          <div className="p-2 text-center">
-                            <p className="text-xs font-medium truncate">{r.product.name}</p>
+                      {batchResults.map((r) => {
+                        const isExported = r.creativeId ? exportedIds.has(r.creativeId) : false;
+                        const verification = verifications.get(r.product.id);
+                        const isAdjusting = adjustingId === `exp-${r.product.id}`;
+                        return (
+                          <div key={r.product.id} className="rounded-xl overflow-hidden border border-border/50 bg-card/50">
+                            <div className="relative">
+                              <img src={r.url} alt={r.product.name} className="w-full aspect-square object-cover" />
+                              {isExported && (
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-bold shadow-lg">
+                                  <ShieldCheck className="h-3 w-3" />
+                                  Aprovado
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-2 space-y-1.5">
+                              <p className="text-xs font-medium truncate">{r.product.name}</p>
+                              {verification && (
+                                <div className="flex items-center gap-1">
+                                  {verification.nota >= 8 ? (
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                  )}
+                                  <span className={`text-[10px] font-medium ${verification.nota >= 8 ? "text-green-500" : "text-orange-500"}`}>
+                                    Texto: {verification.nota}/10
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => { setAdjustingId(isAdjusting ? null : `exp-${r.product.id}`); setAdjustPrompt(""); }}
+                                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-orange-500 transition-colors"
+                              >
+                                <Pencil className="h-3 w-3" />
+                                {isAdjusting ? "Cancelar" : "Ajustar"}
+                              </button>
+                              {isAdjusting && (
+                                <div className="space-y-1.5">
+                                  <Textarea
+                                    value={adjustPrompt}
+                                    onChange={(e) => setAdjustPrompt(e.target.value)}
+                                    placeholder="Descreva o ajuste..."
+                                    className="text-xs min-h-[60px] resize-none"
+                                  />
+                                  <Button
+                                    size="sm"
+                                    className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+                                    onClick={() => handleAdjustCreative(r.blob, r.product.name, r.product.id, false)}
+                                    disabled={adjustingLoading || !adjustPrompt.trim()}
+                                  >
+                                    {adjustingLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                                    Regenerar
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
