@@ -10,14 +10,14 @@ import {
 import {
   Users,
   Package,
-  Megaphone,
   ImagePlus,
+  Images,
   MessageSquare,
   ArrowRight,
   Upload,
-  Palette,
   Wand2,
   Clock,
+  Timer,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -42,19 +42,19 @@ const steps = [
   },
   {
     number: "03",
-    title: "Crie a promoção",
+    title: "Gere os criativos",
     description:
-      "Defina tipo, periodo e gere selo 3D com inteligência artificial",
-    icon: Palette,
+      "Escolha entre 3 estilos e gere em lote para múltiplos produtos",
+    icon: Wand2,
     color: "text-amber-400",
     borderColor: "border-amber-500/20",
     bg: "bg-amber-500/5",
   },
   {
     number: "04",
-    title: "Gere o criativo",
-    description: "Escolha entre variações e exporte em alta resolução",
-    icon: Wand2,
+    title: "Biblioteca",
+    description: "Todos os criativos organizados por cliente, prontos para download",
+    icon: Images,
     color: "text-rose-400",
     borderColor: "border-rose-500/20",
     bg: "bg-rose-500/5",
@@ -68,49 +68,73 @@ interface StatItem {
   icon: typeof Users;
   href: string;
   gradient: string;
-  glow: string;
   iconBg: string;
   iconColor: string;
+}
+
+interface RecentCreative {
+  id: string;
+  image_url: string | null;
+  format: string | null;
+  created_at: string;
+  clients: { name: string } | null;
+}
+
+const MINUTOS_POR_CRIATIVO = 17; // média entre 15-20 min
+
+function formatTimeSaved(totalMinutes: number): string {
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (hours < 24) return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remainHours = hours % 24;
+  return remainHours > 0 ? `${days}d ${remainHours}h` : `${days} dias`;
 }
 
 export default function DashboardPage() {
   const [counts, setCounts] = useState({
     clients: 0,
     products: 0,
-    promotions: 0,
     creatives: 0,
   });
+  const [recentCreatives, setRecentCreatives] = useState<RecentCreative[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchCounts() {
+    async function fetchData() {
       try {
-        const [clientsRes, productsRes, promotionsRes] = await Promise.all([
+        const [clientsRes, productsRes, creativesRes] = await Promise.all([
           fetch("/api/clients"),
           fetch("/api/products"),
-          fetch("/api/promotions"),
+          fetch("/api/creatives"),
         ]);
 
-        const [clientsData, productsData, promotionsData] = await Promise.all([
+        const [clientsData, productsData, creativesData] = await Promise.all([
           clientsRes.ok ? clientsRes.json() : [],
           productsRes.ok ? productsRes.json() : [],
-          promotionsRes.ok ? promotionsRes.json() : [],
+          creativesRes.ok ? creativesRes.json() : [],
         ]);
 
         setCounts({
           clients: Array.isArray(clientsData) ? clientsData.length : 0,
           products: Array.isArray(productsData) ? productsData.length : 0,
-          promotions: Array.isArray(promotionsData) ? promotionsData.length : 0,
-          creatives: 0,
+          creatives: Array.isArray(creativesData) ? creativesData.length : 0,
         });
+
+        if (Array.isArray(creativesData)) {
+          setRecentCreatives(creativesData.slice(0, 8));
+        }
       } catch {
-        console.error("Erro ao buscar contadores");
+        console.error("Erro ao buscar dados");
       } finally {
         setLoading(false);
       }
     }
-    fetchCounts();
+    fetchData();
   }, []);
+
+  const timeSavedMinutes = counts.creatives * MINUTOS_POR_CRIATIVO;
 
   const stats: StatItem[] = [
     {
@@ -120,7 +144,6 @@ export default function DashboardPage() {
       icon: Users,
       href: "/clientes",
       gradient: "from-[#F97316] to-[#f43f5e]",
-      glow: "shadow-orange-500/20",
       iconBg: "bg-orange-500/10",
       iconColor: "text-orange-400",
     },
@@ -131,31 +154,28 @@ export default function DashboardPage() {
       icon: Package,
       href: "/produtos",
       gradient: "from-teal-500 to-emerald-400",
-      glow: "shadow-teal-500/20",
       iconBg: "bg-teal-500/10",
       iconColor: "text-teal-400",
     },
     {
-      title: "Promoções",
-      value: loading ? "..." : String(counts.promotions),
-      description: "ativas",
-      icon: Megaphone,
-      href: "/promocoes",
-      gradient: "from-amber-500 to-yellow-400",
-      glow: "shadow-amber-500/20",
-      iconBg: "bg-amber-500/10",
-      iconColor: "text-amber-400",
-    },
-    {
       title: "Criativos",
       value: loading ? "..." : String(counts.creatives),
-      description: "gerados",
-      icon: ImagePlus,
-      href: "/criar",
+      description: "gerados com IA",
+      icon: Images,
+      href: "/biblioteca",
       gradient: "from-[#F97316] to-[#f43f5e]",
-      glow: "shadow-orange-500/20",
       iconBg: "bg-rose-500/10",
       iconColor: "text-rose-400",
+    },
+    {
+      title: "Tempo Economizado",
+      value: loading ? "..." : formatTimeSaved(timeSavedMinutes),
+      description: `vs. ${MINUTOS_POR_CRIATIVO}min/criativo manual`,
+      icon: Timer,
+      href: "/biblioteca",
+      gradient: "from-violet-500 to-purple-400",
+      iconBg: "bg-violet-500/10",
+      iconColor: "text-violet-400",
     },
   ];
 
@@ -190,7 +210,7 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
         {stats.map((stat) => (
-          <Link key={stat.href} href={stat.href}>
+          <Link key={stat.title} href={stat.href}>
             <Card className="group relative overflow-hidden cursor-pointer border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl p-5">
               <div
                 className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-[0.03]`}
@@ -215,6 +235,88 @@ export default function DashboardPage() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* Criativos Recentes */}
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold tracking-tight">
+              Criativos recentes
+            </h3>
+            <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+          </div>
+          {recentCreatives.length > 0 && (
+            <Link href="/biblioteca" className="text-xs text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1">
+              Ver todos
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="aspect-square rounded-xl bg-muted/30 animate-pulse" />
+            ))}
+          </div>
+        ) : recentCreatives.length > 0 ? (
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            {recentCreatives.map((creative) => (
+              <Link key={creative.id} href="/biblioteca">
+                <div className="group relative rounded-xl overflow-hidden border border-border/40 bg-card/50 hover:border-border hover:shadow-lg transition-all cursor-pointer">
+                  {creative.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={creative.image_url}
+                      alt={creative.clients?.name || "Criativo"}
+                      className="w-full aspect-square object-cover"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square bg-muted/20 flex items-center justify-center">
+                      <ImagePlus className="h-8 w-8 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-0 inset-x-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-white text-xs font-medium truncate">
+                      {creative.clients?.name || "Sem cliente"}
+                    </p>
+                    <p className="text-white/60 text-[10px]">
+                      {new Date(creative.created_at).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-border/50 bg-card/30 overflow-hidden rounded-2xl">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="relative mb-5">
+                <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-xl animate-glow-pulse" />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-border/50 bg-card">
+                  <ImagePlus className="h-7 w-7 text-muted-foreground/40" />
+                </div>
+              </div>
+              <h4 className="text-sm font-semibold text-foreground mb-1">
+                Nenhum criativo gerado
+              </h4>
+              <p className="text-xs text-muted-foreground text-center max-w-sm">
+                Comece criando seu primeiro criativo promocional com IA.
+              </p>
+              <Link href="/criar" className="mt-4">
+                <button className="text-xs text-orange-500 hover:text-orange-400 font-medium flex items-center gap-1">
+                  Criar agora
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* How to start - Stepper */}
@@ -259,34 +361,6 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div>
-        <div className="flex items-center gap-2 mb-5">
-          <h3 className="text-lg font-semibold tracking-tight">
-            Atividade recente
-          </h3>
-          <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
-        </div>
-
-        <Card className="border-border/50 bg-card/30 overflow-hidden rounded-2xl">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="relative mb-5">
-              <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-xl animate-glow-pulse" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-border/50 bg-card">
-                <Clock className="h-7 w-7 text-muted-foreground/40" />
-              </div>
-            </div>
-            <h4 className="text-sm font-semibold text-foreground mb-1">
-              Nenhuma atividade ainda
-            </h4>
-            <p className="text-xs text-muted-foreground text-center max-w-sm">
-              Comece cadastrando um cliente para ver sua atividade aqui. Cada
-              criativo gerado aparecerá nesta timeline.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

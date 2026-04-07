@@ -17,10 +17,10 @@ import {
 import {
   Users,
   Package,
-  Megaphone,
   ImagePlus,
   LayoutDashboard,
   MessageSquare,
+  Images,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -42,14 +42,14 @@ const menuItems = [
     icon: Package,
   },
   {
-    title: "Promoções",
-    href: "/promocoes",
-    icon: Megaphone,
-  },
-  {
     title: "Criar Criativo",
     href: "/criar",
     icon: ImagePlus,
+  },
+  {
+    title: "Biblioteca",
+    href: "/biblioteca",
+    icon: Images,
   },
 ];
 

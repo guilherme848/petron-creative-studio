@@ -1,0 +1,353 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  ImageIcon,
+  Search,
+  Download,
+  Trash2,
+  MoreHorizontal,
+  Loader2,
+  Filter,
+  X,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
+import Link from "next/link";
+
+interface Creative {
+  id: string;
+  client_id: string | null;
+  format: string | null;
+  image_url: string | null;
+  created_at: string;
+  clients: {
+    name: string;
+    segment: string | null;
+  } | null;
+}
+
+function isMatCon(segment: string | null): boolean {
+  if (!segment) return false;
+  const s = segment.toLowerCase();
+  return s.includes("material") || s.includes("construção") || s.includes("matcon") || s.includes("home center");
+}
+
+export default function BibliotecaPage() {
+  const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+
+  async function fetchCreatives() {
+    try {
+      const res = await fetch("/api/creatives");
+      if (!res.ok) throw new Error("Erro ao buscar criativos");
+      const data = await res.json();
+      setCreatives(data);
+    } catch {
+      toast.error("Erro ao carregar biblioteca");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchCreatives();
+  }, []);
+
+  async function handleDelete(id: string) {
+    if (!confirm("Excluir este criativo?")) return;
+    try {
+      const res = await fetch(`/api/creatives?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao excluir");
+      toast.success("Criativo excluído");
+      fetchCreatives();
+    } catch {
+      toast.error("Erro ao excluir criativo");
+    }
+  }
+
+  function handleDownload(url: string, clientName: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `criativo-${clientName}-${Date.now()}.png`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // Clientes únicos para filtro
+  const clientNames = Array.from(
+    new Map(
+      creatives
+        .filter((c) => c.clients?.name)
+        .map((c) => [c.client_id, c.clients!.name])
+    ).entries()
+  ).map(([id, name]) => ({ id: id!, name }));
+
+  // MatCon clients first
+  const sortedClientNames = clientNames.sort((a, b) => {
+    const creative_a = creatives.find((c) => c.client_id === a.id);
+    const creative_b = creatives.find((c) => c.client_id === b.id);
+    const aMatCon = isMatCon(creative_a?.clients?.segment || null);
+    const bMatCon = isMatCon(creative_b?.clients?.segment || null);
+    if (aMatCon && !bMatCon) return -1;
+    if (!aMatCon && bMatCon) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Filtros
+  const filtered = creatives.filter((c) => {
+    const matchSearch = !search || c.clients?.name?.toLowerCase().includes(search.toLowerCase());
+    const matchClient = clientFilter === "all" || c.client_id === clientFilter;
+    return matchSearch && matchClient;
+  });
+
+  // Agrupar por cliente
+  const grouped = new Map<string, Creative[]>();
+  for (const c of filtered) {
+    const key = c.client_id || "sem-cliente";
+    const list = grouped.get(key) || [];
+    list.push(c);
+    grouped.set(key, list);
+  }
+
+  // Ordenar grupos: MatCon primeiro
+  const sortedGroups = Array.from(grouped.entries()).sort(([, a], [, b]) => {
+    const aMatCon = isMatCon(a[0]?.clients?.segment || null);
+    const bMatCon = isMatCon(b[0]?.clients?.segment || null);
+    if (aMatCon && !bMatCon) return -1;
+    if (!aMatCon && bMatCon) return 1;
+    const aName = a[0]?.clients?.name || "ZZZ";
+    const bName = b[0]?.clients?.name || "ZZZ";
+    return aName.localeCompare(bName);
+  });
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Biblioteca de Criativos</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {creatives.length} criativo{creatives.length !== 1 ? "s" : ""} gerado{creatives.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <Link href="/criar">
+          <Button className="bg-gradient-to-r from-[#F97316] to-[#f43f5e] hover:from-[#ea6c10] hover:to-[#e0354f] text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30 border-0 btn-micro">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Criar Criativo
+          </Button>
+        </Link>
+      </div>
+
+      {/* Filtros */}
+      {!loading && creatives.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Pills de cliente */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+            <button
+              type="button"
+              onClick={() => setClientFilter("all")}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                clientFilter === "all"
+                  ? "bg-foreground text-background shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Todos ({creatives.length})
+            </button>
+            {sortedClientNames.map((cn) => {
+              const count = creatives.filter((c) => c.client_id === cn.id).length;
+              const seg = creatives.find((c) => c.client_id === cn.id)?.clients?.segment;
+              return (
+                <button
+                  key={cn.id}
+                  type="button"
+                  onClick={() => setClientFilter(cn.id)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
+                    clientFilter === cn.id
+                      ? isMatCon(seg || null) ? "bg-orange-500 text-white shadow-sm" : "bg-foreground text-background shadow-sm"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {cn.name} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="aspect-square rounded-xl bg-muted/30 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Vazio */}
+      {!loading && creatives.length === 0 && (
+        <Card className="border-border/50 bg-card/30 overflow-hidden rounded-2xl">
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-xl animate-glow-pulse" />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/5">
+                <ImageIcon className="h-9 w-9 text-orange-400/70" />
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold mb-1.5">Nenhum criativo gerado</h3>
+            <p className="text-sm text-muted-foreground mb-6 text-center max-w-sm">
+              Crie seu primeiro criativo promocional com inteligência artificial.
+            </p>
+            <Link href="/criar">
+              <Button variant="outline" className="border-border/50 hover:border-orange-500/30 hover:bg-orange-500/5 btn-micro">
+                <Sparkles className="mr-2 h-4 w-4" />
+                Criar Criativo
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtro sem resultado */}
+      {!loading && creatives.length > 0 && filtered.length === 0 && (
+        <div className="text-center py-12">
+          <Search className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Nenhum criativo encontrado.</p>
+        </div>
+      )}
+
+      {/* Criativos agrupados por cliente */}
+      {!loading && sortedGroups.map(([clientId, clientCreatives]) => {
+        const clientName = clientCreatives[0]?.clients?.name || "Sem cliente";
+        const segment = clientCreatives[0]?.clients?.segment;
+
+        return (
+          <div key={clientId} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold">{clientName}</h3>
+              {isMatCon(segment || null) && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500 font-medium">
+                  MatCon
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {clientCreatives.length} criativo{clientCreatives.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+              {clientCreatives.map((creative) => (
+                <div
+                  key={creative.id}
+                  className="group relative rounded-xl overflow-hidden border border-border/40 bg-card/50 hover:border-border hover:shadow-lg transition-all"
+                >
+                  {creative.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={creative.image_url}
+                      alt={`Criativo ${clientName}`}
+                      className="w-full aspect-square object-cover"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square bg-muted/20 flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                    </div>
+                  )}
+
+                  {/* Overlay com ações */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2.5">
+                    <div className="flex items-center justify-between w-full">
+                      <div>
+                        {creative.format && (
+                          <Badge variant="secondary" className="text-[9px] bg-white/20 text-white border-0 backdrop-blur-sm">
+                            {creative.format}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        {creative.image_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(creative.image_url!, clientName)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 transition-colors"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 transition-colors">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" sideOffset={4}>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => handleDelete(creative.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data */}
+                  <div className="p-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(creative.created_at).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
