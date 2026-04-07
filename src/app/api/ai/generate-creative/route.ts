@@ -283,15 +283,19 @@ ${variationPrompt}`;
       .upload(fileName, imageBuffer, { contentType: "image/png" });
 
     let imageUrl: string | null = null;
+    let creativeId: string | null = null;
     if (!uploadError) {
       imageUrl = `${SUPABASE_URL}/storage/v1/object/public/creatives/${fileName}`;
 
-      await supabase.from("creatives").insert({
+      const { data: creativeRow } = await supabase.from("creatives").insert({
         client_id: clientId || null,
         promotion_id: promotionId || null,
         format: format || "1080x1080",
         image_url: imageUrl,
-      });
+        status: "draft",
+      }).select("id").single();
+
+      creativeId = creativeRow?.id || null;
     }
 
     return new NextResponse(new Uint8Array(imageBuffer), {
@@ -300,6 +304,7 @@ ${variationPrompt}`;
         "Content-Type": "image/png",
         "Content-Disposition": "inline; filename=criativo.png",
         "X-Image-Url": imageUrl || "",
+        "X-Creative-Id": creativeId || "",
       },
     });
   } catch (err) {

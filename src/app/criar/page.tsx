@@ -115,6 +115,7 @@ interface VariationResult {
   url: string;
   blob: Blob;
   variation: number;
+  creativeId: string | null;
 }
 
 interface BatchProduct {
@@ -133,6 +134,7 @@ interface BatchResult {
   product: BatchProduct;
   url: string;
   blob: Blob;
+  creativeId: string | null;
 }
 
 const STEPS = [
@@ -344,7 +346,7 @@ export default function CriarPage() {
     conditionVal: string,
     styleVariation?: number,
     referenceBlob?: Blob | null,
-  ): Promise<{ blob: Blob; url: string }> => {
+  ): Promise<{ blob: Blob; url: string; creativeId: string | null }> => {
     const bodyData = {
       clientName: cliente?.nome || "Loja",
       clientColors: cliente?.cores || ["#F97316", "#FFFFFF"],
@@ -398,9 +400,10 @@ export default function CriarPage() {
       throw new Error(err.error || "Erro ao gerar criativo");
     }
 
+    const creativeId = res.headers.get("X-Creative-Id") || null;
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    return { blob, url };
+    return { blob, url, creativeId };
   };
 
   // Step 4: Gerar 3 variações de estilo
@@ -415,7 +418,7 @@ export default function CriarPage() {
     for (let v = 1; v <= 3; v++) {
       try {
         setVariacaoProgresso(v);
-        const { blob, url } = await generateSingleCreative(
+        const { blob, url, creativeId } = await generateSingleCreative(
           state.produtoNome,
           state.produtoSpec,
           state.produtoFotoFile,
@@ -426,7 +429,7 @@ export default function CriarPage() {
           state.condicao,
           v,
         );
-        results.push({ url, blob, variation: v });
+        results.push({ url, blob, variation: v, creativeId });
         setVariations([...results]);
       } catch (err) {
         toast.error(`Erro na variação ${v}: ${err instanceof Error ? err.message : "erro"}`);
@@ -470,7 +473,7 @@ export default function CriarPage() {
           } catch { /* continua sem imagem */ }
         }
 
-        const { blob, url } = await generateSingleCreative(
+        const { blob, url, creativeId } = await generateSingleCreative(
           product.name,
           product.spec,
           productFile,
@@ -483,7 +486,7 @@ export default function CriarPage() {
           refVariation.blob,
         );
 
-        results.push({ product, url, blob });
+        results.push({ product, url, blob, creativeId });
         setBatchResults([...results]);
       } catch (err) {
         toast.error(`Erro em "${product.name}": ${err instanceof Error ? err.message : "erro"}`);
@@ -536,19 +539,38 @@ export default function CriarPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadAll = () => {
-    // Download reference
+  const handleDownloadAll = async () => {
+    // Coletar IDs para aprovar
+    const idsToApprove: string[] = [];
     const refVar = variations.find((v) => v.variation === selectedVariation);
+
+    if (refVar?.creativeId) idsToApprove.push(refVar.creativeId);
+    batchResults.forEach((r) => {
+      if (r.creativeId) idsToApprove.push(r.creativeId);
+    });
+
+    // Aprovar criativos (marcar como exported)
+    if (idsToApprove.length > 0) {
+      try {
+        await fetch("/api/creatives", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: idsToApprove }),
+        });
+      } catch { /* continua com download mesmo se falhar */ }
+    }
+
+    // Download reference
     if (refVar) {
       handleDownload(refVar.blob, `criativo-${state.produtoNome}-referencia`);
     }
     // Download batch
-    batchResults.forEach((r) => {
+    batchResults.forEach((r, i) => {
       setTimeout(() => {
         handleDownload(r.blob, `criativo-${r.product.name}`);
-      }, 300);
+      }, 300 * (i + 1));
     });
-    toast.success("Downloads iniciados!");
+    toast.success(`${idsToApprove.length} criativo(s) aprovado(s) e exportado(s)!`);
   };
 
   const canAdvance = () => {
