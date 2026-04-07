@@ -590,7 +590,13 @@ export default function CriarPage() {
         {/* Left: Steps */}
         <div className="space-y-5">
           {/* Step 1: Cliente */}
-          {step === 1 && (
+          {step === 1 && (() => {
+            const filtered = clientes.filter((c) =>
+              c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
+            );
+            const selectedClient = clientes.find((c) => c.id === state.clienteId);
+
+            return (
             <Card className="rounded-2xl border-border/50 bg-card/80 animate-fade-in">
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -601,93 +607,178 @@ export default function CriarPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Escolha o cliente para aplicar a identidade visual no criativo.
-                </p>
-                {loadingClientes ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-4 rounded-xl border border-border/50 p-4 animate-pulse">
-                        <div className="h-12 w-12 rounded-xl bg-muted/50" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 w-24 rounded bg-muted/50" />
-                          <div className="flex gap-1">
-                            <div className="h-4 w-4 rounded-full bg-muted/40" />
-                            <div className="h-4 w-4 rounded-full bg-muted/40" />
-                            <div className="h-4 w-4 rounded-full bg-muted/40" />
+
+                {/* Cliente selecionado — card destacado */}
+                {selectedClient && (
+                  <div className="rounded-xl border-2 border-orange-500 bg-gradient-to-br from-orange-500/5 to-transparent p-4 space-y-3">
+                    <div className="flex items-center gap-4">
+                      {selectedClient.logoUrl ? (
+                        <div className="h-16 w-16 rounded-xl border border-orange-500/20 bg-white flex items-center justify-center overflow-hidden p-1.5 shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={selectedClient.logoUrl} alt={selectedClient.nome} className="max-h-full max-w-full object-contain" />
+                        </div>
+                      ) : (
+                        <div
+                          className="flex h-16 w-16 items-center justify-center rounded-xl text-white font-bold text-lg shadow-sm"
+                          style={{ backgroundColor: selectedClient.cores[0] }}
+                        >
+                          {selectedClient.nome.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-bold truncate">{selectedClient.nome}</h4>
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shrink-0">
+                            <Check className="h-3 w-3" />
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : clientes.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-muted-foreground">
-                      Nenhum cliente cadastrado. Cadastre um cliente primeiro.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar cliente..."
-                      value={clienteSearch}
-                      onChange={(e) => setClienteSearch(e.target.value)}
-                      className="pl-9 h-[42px]"
-                    />
-                  </div>
-                  <div className="grid gap-3 max-h-[400px] overflow-y-auto">
-                    {clientes.filter((c) =>
-                      c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
-                    ).map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => update({ clienteId: c.id })}
-                        className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
-                          state.clienteId === c.id
-                            ? "border-orange-500 bg-orange-500/5 shadow-sm"
-                            : "border-border/50 hover:border-orange-500/30 hover:bg-card/60"
-                        }`}
-                      >
-                        {c.logoUrl ? (
-                          <div className="h-12 w-12 rounded-xl border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-1">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={c.logoUrl} alt={c.nome} className="max-h-full max-w-full object-contain" />
-                          </div>
-                        ) : (
-                          <div
-                            className="flex h-12 w-12 items-center justify-center rounded-xl text-white font-bold text-sm"
-                            style={{ backgroundColor: c.cores[0] }}
-                          >
-                            {c.nome.slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <h4 className="text-sm font-semibold">{c.nome}</h4>
-                          <div className="flex gap-1 mt-1.5">
-                            {c.cores.map((cor, i) => (
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="flex gap-1">
+                            {selectedClient.cores.map((cor, i) => (
                               <div
                                 key={i}
-                                className="h-4 w-4 rounded-full border border-border/50"
+                                className="h-5 w-5 rounded-full border-2 border-white shadow-sm"
                                 style={{ backgroundColor: cor }}
+                                title={cor}
                               />
                             ))}
                           </div>
+                          {selectedClient.fonts.title && (
+                            <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                              {selectedClient.fonts.title}
+                            </span>
+                          )}
                         </div>
-                        {state.clienteId === c.id && (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-white">
-                            <Check className="h-3.5 w-3.5" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => update({ clienteId: "" })}
+                        className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted/50 transition-colors shrink-0"
+                        title="Trocar cliente"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Busca + lista (esconde quando já selecionou, mostra ao clicar X) */}
+                {!selectedClient && (
+                  <>
+                    {loadingClientes ? (
+                      <div className="space-y-2">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="flex items-center gap-3 rounded-lg border border-border/30 p-3 animate-pulse">
+                            <div className="h-10 w-10 rounded-lg bg-muted/50" />
+                            <div className="flex-1 space-y-1.5">
+                              <div className="h-3.5 w-28 rounded bg-muted/50" />
+                              <div className="flex gap-1">
+                                <div className="h-3 w-3 rounded-full bg-muted/40" />
+                                <div className="h-3 w-3 rounded-full bg-muted/40" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : clientes.length === 0 ? (
+                      <div className="text-center py-10">
+                        <Users className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum cliente cadastrado.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Campo de busca */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar por nome..."
+                            value={clienteSearch}
+                            onChange={(e) => setClienteSearch(e.target.value)}
+                            className="pl-9 h-10"
+                            autoFocus
+                          />
+                          {clienteSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setClienteSearch("")}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Contagem */}
+                        <p className="text-[11px] text-muted-foreground">
+                          {filtered.length === clientes.length
+                            ? `${clientes.length} clientes`
+                            : `${filtered.length} de ${clientes.length} clientes`}
+                        </p>
+
+                        {/* Lista de clientes */}
+                        {filtered.length === 0 ? (
+                          <div className="text-center py-8">
+                            <Search className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">
+                              Nenhum cliente encontrado para &quot;{clienteSearch}&quot;
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
+                            {filtered.map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => {
+                                  update({ clienteId: c.id });
+                                  setClienteSearch("");
+                                }}
+                                className="w-full flex items-center gap-3 rounded-lg border border-border/40 p-3 text-left transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.02] hover:shadow-sm group"
+                              >
+                                {c.logoUrl ? (
+                                  <div className="h-10 w-10 rounded-lg border border-border/30 bg-white flex items-center justify-center overflow-hidden p-1 shrink-0">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={c.logoUrl} alt={c.nome} className="max-h-full max-w-full object-contain" />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0"
+                                    style={{ backgroundColor: c.cores[0] }}
+                                  >
+                                    {c.nome.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-semibold truncate group-hover:text-orange-500 transition-colors">{c.nome}</h4>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex gap-0.5">
+                                      {c.cores.slice(0, 5).map((cor, i) => (
+                                        <div
+                                          key={i}
+                                          className="h-3 w-3 rounded-full border border-border/50"
+                                          style={{ backgroundColor: cor }}
+                                        />
+                                      ))}
+                                    </div>
+                                    {c.fonts.title && (
+                                      <span className="text-[10px] text-muted-foreground">{c.fonts.title}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-orange-500/50 transition-colors shrink-0" />
+                              </button>
+                            ))}
                           </div>
                         )}
-                      </button>
-                    ))}
-                  </div>
+                      </>
+                    )}
                   </>
                 )}
               </CardContent>
             </Card>
-          )}
+            );
+          })()}
 
           {/* Step 2: Promoção */}
           {step === 2 && (
