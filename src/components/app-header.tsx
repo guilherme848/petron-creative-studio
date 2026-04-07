@@ -4,6 +4,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/": { title: "Dashboard", subtitle: "Visão geral" },
@@ -11,8 +12,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   "/clientes/novo": { title: "Novo Cliente", subtitle: "Cadastrar marca" },
   "/produtos": { title: "Produtos", subtitle: "Banco de produtos" },
   "/produtos/novo": { title: "Novo Produto", subtitle: "Adicionar produto" },
-  "/promocoes": { title: "Promoções", subtitle: "Campanhas ativas" },
-  "/promocoes/nova": { title: "Nova Promoção", subtitle: "Criar campanha" },
+  "/biblioteca": { title: "Biblioteca", subtitle: "Criativos gerados" },
   "/criar": { title: "Criar Criativo", subtitle: "Gerar anúncio" },
 };
 
@@ -46,7 +46,8 @@ export function AppHeader() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
         <Avatar className="h-7 w-7 border border-border cursor-pointer hover:border-orange-500/50">
           <AvatarFallback className="bg-gradient-to-br from-orange-500/20 to-rose-500/20 text-orange-400 text-[10px] font-semibold">
             GR

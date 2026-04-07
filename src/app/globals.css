@@ -387,7 +387,7 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: hsl(228 20% 18%);
+    background: var(--border);
     border-radius: 4px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
