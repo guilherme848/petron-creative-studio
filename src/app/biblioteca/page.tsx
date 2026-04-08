@@ -56,6 +56,7 @@ export default function BibliotecaPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [monthFilter, setMonthFilter] = useState<string>("all");
   const [lightboxCreative, setLightboxCreative] = useState<Creative | null>(null);
 
   async function fetchCreatives() {
@@ -118,11 +119,23 @@ export default function BibliotecaPage() {
     return a.name.localeCompare(b.name);
   });
 
+  // Meses disponíveis (formato "2026-04" → "Abr 2026")
+  const months = Array.from(
+    new Set(creatives.map((c) => c.created_at.substring(0, 7)))
+  ).sort((a, b) => b.localeCompare(a)); // mais recente primeiro
+
+  function formatMonth(ym: string) {
+    const [y, m] = ym.split("-");
+    const names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    return `${names[parseInt(m) - 1]} ${y}`;
+  }
+
   // Filtros
   const filtered = creatives.filter((c) => {
     const matchSearch = !search || c.clients?.name?.toLowerCase().includes(search.toLowerCase());
     const matchClient = clientFilter === "all" || c.client_id === clientFilter;
-    return matchSearch && matchClient;
+    const matchMonth = monthFilter === "all" || c.created_at.startsWith(monthFilter);
+    return matchSearch && matchClient && matchMonth;
   });
 
   // Agrupar por cliente
@@ -155,6 +168,7 @@ export default function BibliotecaPage() {
   }
 
   const activeClient = sortedClients.find((c) => c.id === clientFilter);
+  const hasActiveFilter = activeClient || monthFilter !== "all";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -289,6 +303,51 @@ export default function BibliotecaPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Filtro por mês */}
+            {months.length > 0 && (
+              <Card className="sticky top-[calc(76px+24rem)] rounded-2xl border-border/50 bg-card/80 overflow-hidden mt-4">
+                <div className="px-4 py-3 border-b border-border/40">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-semibold">Período</span>
+                  </div>
+                </div>
+                <div className="p-2">
+                  <button
+                    type="button"
+                    onClick={() => setMonthFilter("all")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                      monthFilter === "all"
+                        ? "bg-orange-500/10 text-orange-500"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <span>Todos os meses</span>
+                  </button>
+                  <div className="space-y-0.5 mt-1">
+                    {months.map((ym) => {
+                      const count = creatives.filter((c) => c.created_at.startsWith(ym)).length;
+                      return (
+                        <button
+                          key={ym}
+                          type="button"
+                          onClick={() => setMonthFilter(ym)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${
+                            monthFilter === ym
+                              ? "bg-teal-500/10 text-teal-500"
+                              : "text-foreground/80 hover:text-foreground hover:bg-muted/40"
+                          }`}
+                        >
+                          <span>{formatMonth(ym)}</span>
+                          <Badge variant="secondary" className="text-[9px] h-4 px-1.5 opacity-70">{count}</Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
@@ -315,11 +374,17 @@ export default function BibliotecaPage() {
           )}
 
           {/* Filtro ativo (breadcrumb) */}
-          {activeClient && (
-            <div className="flex items-center gap-2 text-xs">
+          {hasActiveFilter && (
+            <div className="flex items-center gap-2 text-xs flex-wrap">
               <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Filtrando por: <span className="text-foreground font-medium">{activeClient.name}</span></span>
-              <button type="button" onClick={() => setClientFilter("all")} className="text-orange-500 hover:text-orange-400 font-medium ml-1">Limpar</button>
+              <span className="text-muted-foreground">Filtrando:</span>
+              {activeClient && (
+                <span className="px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-500 font-medium">{activeClient.name}</span>
+              )}
+              {monthFilter !== "all" && (
+                <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 font-medium">{formatMonth(monthFilter)}</span>
+              )}
+              <button type="button" onClick={() => { setClientFilter("all"); setMonthFilter("all"); }} className="text-orange-500 hover:text-orange-400 font-medium ml-1">Limpar</button>
             </div>
           )}
 
@@ -388,7 +453,7 @@ export default function BibliotecaPage() {
             <div className="text-center py-12">
               <Search className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">Nenhum criativo encontrado.</p>
-              <button type="button" onClick={() => { setSearch(""); setClientFilter("all"); }} className="text-xs text-orange-500 hover:text-orange-400 font-medium mt-2">Limpar filtros</button>
+              <button type="button" onClick={() => { setSearch(""); setClientFilter("all"); setMonthFilter("all"); }} className="text-xs text-orange-500 hover:text-orange-400 font-medium mt-2">Limpar filtros</button>
             </div>
           )}
 
