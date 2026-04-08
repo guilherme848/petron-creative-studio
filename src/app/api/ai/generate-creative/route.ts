@@ -91,13 +91,45 @@ export async function POST(request: Request) {
       // com instrução explícita no prompt
     }
 
-    // Variação de estilo
+    // Variações de estilo — cada uma muda layout, composição e vibe completa
     const styleInstructions: Record<number, string> = {
-      1: "STYLE VARIATION: Use a DIAGONAL SPLIT background with bold geometric shapes. Upper-left in brand color, lower-right in white/light. Add floating 3D confetti elements.",
-      2: "STYLE VARIATION: Use a GRADIENT WAVE background flowing from brand color to dark. Place product on a subtle platform/pedestal. Use glassmorphism effects on price tags.",
-      3: "STYLE VARIATION: Use a RADIAL BURST background centered behind the product. Starburst pattern in brand color. Add metallic ribbon accents and particle effects.",
+      1: `STYLE: IMPACTO VAREJO
+Layout: produto GIGANTE centralizado (50%+ da área), preço em banner diagonal no canto superior esquerdo com efeito ribbon/faixa.
+Background: cor da marca sólida com textura sutil de concreto/tijolo. Elementos geométricos angulares nas bordas.
+Vibe: agressivo, direto, estilo encarte de loja — o preço grita. Sombra dura no produto.
+Selo da promoção: faixa lateral vertical na borda esquerda.
+CTA: barra inferior full-width em verde WhatsApp.`,
+
+      2: `STYLE: PREMIUM CLEAN
+Layout: composição assimétrica — produto à direita em pedestal/superfície realista, informações à esquerda com muito espaço branco.
+Background: gradiente suave de branco para cinza claro, com uma faixa fina na cor da marca no topo.
+Vibe: sofisticado, minimalista, inspirado em catálogo de arquitetura. Tipografia elegante com muito tracking.
+Selo da promoção: badge circular pequeno e refinado no canto superior.
+CTA: botão arredondado com sombra suave, não gritante.`,
+
+      3: `STYLE: ENERGIA TOTAL
+Layout: composição dinâmica diagonal — tudo em ângulo de 15°. Produto flutuando com reflexo embaixo. Preço em explosão starburst.
+Background: gradiente vibrante da cor da marca para preto, com partículas luminosas e linhas de velocidade.
+Vibe: Black Friday, mega promoção, urgência. Efeitos de brilho, lens flare, neon glow na cor da marca.
+Selo da promoção: 3D extrudado com brilho metálico e faíscas.
+CTA: botão com borda neon pulsante.`,
     };
-    const variationPrompt = styleVariation ? (styleInstructions[styleVariation] || "") : "";
+
+    // Adicionar seed aleatório pra garantir variação entre gerações do mesmo estilo
+    const randomSeed = Math.floor(Math.random() * 10000);
+    const randomAccents = [
+      "Add subtle particle dust floating in the air.",
+      "Include a thin decorative line pattern in the background.",
+      "Add a subtle vignette effect on the edges.",
+      "Include small geometric accent shapes scattered around.",
+      "Add a subtle lens flare from the upper corner.",
+      "Include a thin brand-colored border frame.",
+    ];
+    const randomAccent = randomAccents[Math.floor(Math.random() * randomAccents.length)];
+
+    const variationPrompt = styleVariation
+      ? `${styleInstructions[styleVariation] || ""}\nRANDOM ACCENT: ${randomAccent} (seed: ${randomSeed})`
+      : `RANDOM ACCENT: ${randomAccent} (seed: ${randomSeed})`;
 
     // Montar parts com imagens reais
     const parts: Array<Record<string, unknown>> = [];
@@ -171,69 +203,28 @@ export async function POST(request: Request) {
 
     const prompt = `${imageInstructions}
 
-Create a premium Brazilian retail promotional poster for a building materials store.
-Format: ${isVertical ? "vertical 1080x1350" : "square 1080x1080"}.
+Generate a high-quality promotional poster for a Brazilian building materials store ("material de construção").
+Format: ${isVertical ? "VERTICAL 1080x1350" : "SQUARE 1080x1080"}. Brand color: ${primaryColor}.
 
-MANDATORY TYPOGRAPHY:
-- Titles and product names: use "${fontTitle}" font family, extra-bold/black weight
-- Prices and numbers: use "${fontPrice}" font family, bold weight, large size
-- Descriptions, conditions and footer: use "${fontDesc}" font family, regular/medium weight
+EXACT TEXT TO RENDER (Brazilian Portuguese, use COMMA for decimals):
+• Promotion: "${promotionName}"
+• Product: "${productName}"${productSpec ? ` — ${productSpec}` : ""}
+• ${priceBlock}
+• CTA button (green, WhatsApp style): "${ctaText}"
+${phone ? `• Phone: "${phone}" (small, near CTA, with WhatsApp icon)` : ""}
+${storeAddress ? `• Address: "${storeAddress}" (small, footer, with pin icon)` : ""}
+${validityBlock ? `• ${validityBlock}` : "• Footer: IMAGEM MERAMENTE ILUSTRATIVA"}
 
-MANDATORY TEXT RULES:
-- ALL text in Brazilian Portuguese with correct accents
-- For prices: use a small "R$" prefix followed by the number. Example: R$ 34,90
-- NEVER use cent symbols (¢), euro (€), dollar ($), or ANY other currency symbol next to the numbers
-- Use COMMA as decimal separator (Brazilian format): 34,90 NOT 34.90
-- Every text must be fully spelled, complete, and legible
+IMAGES:
+${logoFile ? "• Use my PROVIDED LOGO exactly as-is, no modifications" : `• Show store name "${clientName}" as a logo badge`}
+${productImageFile ? "• Use my PROVIDED PRODUCT PHOTO exactly — display it LARGE and prominent with realistic shadow" : `• Show a realistic ${productName}`}
 
-LAYOUT AND CONTENT:
-
-TOP ZONE: Spectacular 3D promotional seal with the text "${promotionName}" in bold extruded metallic chrome letters with ${primaryColor} color accents. Dramatic studio lighting, floating confetti and metallic ribbons around it. Photorealistic 3D quality.
-
-LOGO ZONE: ${logoFile ? "My EXACT logo (from the provided image) displayed clearly" : `Store name "${clientName}" in a professional badge`}
-
-PRODUCT INFO (left side of body):
-- "${productName}" in heavy bold black uppercase letters
-${productSpec ? `- "${productSpec}" in medium gray below the product name` : ""}
-- ${priceBlock}
-
-PRODUCT IMAGE (right side, LARGE - 35-40% of poster width):
-${productImageFile ? "The EXACT product photo I provided, displayed prominently with realistic drop shadow and slight perspective" : `A photorealistic ${productName} with shadow`}
-
-CTA BUTTON: A bright green WhatsApp-style rounded button with bold white text: "${ctaText}". Positioned below the product area.
-${phone ? `PHONE NUMBER: Display "${phone}" in small but legible text near the CTA button (below or beside it). Use a phone/WhatsApp icon next to it.` : ""}
-${storeAddress ? `STORE ADDRESS: Display "${storeAddress}" in small text in the footer area, near the validity dates. Use a location pin icon next to it.` : ""}
-
-FOOTER: ${validityBlock ? `A ${primaryColor} colored bar with white text: ${validityBlock}` : `Small text: IMAGEM MERAMENTE ILUSTRATIVA`}
-
-BACKGROUND DESIGN:
-- Create a visually harmonious background that complements the brand color ${primaryColor}
-- Use creative composition: diagonal splits, gradients, geometric shapes, or contextual textures
-- The background should feel premium and professional, not flat or generic
-- Upper section in brand color, lower section lighter/white for product info readability
-- Add floating decorative 3D elements (confetti, ribbons, geometric shapes) for energy
-
-STYLE: Premium Brazilian retail advertising for building materials stores (like Leroy Merlin, C&C promotional flyers). Ultra high quality, bold, vibrant, commercial. The design should look like it was made by a professional graphic designer.
-
-PROFESSIONAL QUALITY REQUIREMENTS:
-- Ensure perfect visual hierarchy: promotion name > product name > price > details
-- Use consistent spacing and alignment — nothing should look misaligned or cramped
-- All text must have proper contrast against its background (use text shadows or backing shapes)
-- Price must be the dominant visual element after the product photo
-- Colors must harmonize with the brand palette — never clash or look amateur
-- The overall composition must feel balanced, polished, and print-ready
-${hasRef ? `
-REFERENCE-BASED GENERATION (CRITICAL):
-You MUST replicate the EXACT visual style from the reference image I provided:
-- Same layout grid and element positioning (where the logo, product, price, and CTA are placed)
-- Same background treatment (gradient direction, color zones, geometric shapes)
-- Same typographic hierarchy and text sizing ratios
-- Same decorative elements style (confetti, ribbons, shapes, shadows)
-- Same color application pattern (which areas use the brand color vs neutral)
-- ONLY change: the product photo, product name, price text, and specification text
-- Everything else (composition, style, vibe) must be IDENTICAL to the reference` : ""}
 ${variationPrompt}
-${adjustmentPrompt ? `\nUSER ADJUSTMENT REQUEST (CRITICAL — apply these changes to the reference image):\n${adjustmentPrompt}\n\nApply ONLY the requested changes. Keep everything else identical to the reference image.` : ""}`;
+${hasRef ? `
+REFERENCE IMAGE (CRITICAL): Match the EXACT layout, composition, and visual style of the reference image I provided. Only swap the product, name, and price. Keep everything else identical.` : ""}
+${adjustmentPrompt ? `\nADJUSTMENT: ${adjustmentPrompt}` : ""}
+
+QUALITY: Professional retail advertising quality. Bold typography, clear hierarchy (price is king), balanced composition. Every text must be 100% legible and correctly spelled.`;
 
     parts.push({ text: prompt });
 
