@@ -491,6 +491,7 @@ export default function ClientesPage() {
             return (
               <Card
                 key={client.id}
+                onClick={() => router.push(`/clientes/${client.id}`)}
                 className="border-border/50 bg-card/50 hover:bg-card/80 hover:border-border hover:shadow-lg hover:-translate-y-0.5 rounded-2xl transition-all cursor-pointer group"
               >
                 <CardContent className="p-6">

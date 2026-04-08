@@ -199,11 +199,17 @@ export default function DashboardPage() {
             Bem-vindo ao{" "}
             <span className="text-gradient">Petron Creative</span>
           </h2>
-          <p className="text-muted-foreground max-w-lg text-sm leading-relaxed">
+          <p className="text-muted-foreground max-w-lg text-sm leading-relaxed mb-5">
             Gere criativos profissionais para Meta Ads em menos de 5 minutos.
             Potencializado por inteligência artificial para lojas de materiais de
             construção.
           </p>
+          <Link href="/criar">
+            <button className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#F97316] to-[#f43f5e] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 btn-micro">
+              <Wand2 className="h-4 w-4" />
+              Criar Criativo Agora
+            </button>
+          </Link>
         </div>
       </div>
 

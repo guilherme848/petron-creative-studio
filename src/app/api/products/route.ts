@@ -16,19 +16,10 @@ function generateUniqueName(originalName: string): string {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get("client_id");
-
-    let query = supabase
+    const { data, error } = await supabase
       .from("products")
       .select("*")
       .order("created_at", { ascending: false });
-
-    if (clientId) {
-      query = query.eq("client_id", clientId);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -152,9 +143,9 @@ export async function POST(request: Request) {
     const { data: product, error: productError } = await supabase
       .from("products")
       .insert({
-        client_id: productData.client_id || null,
         name: productData.name,
         description: productData.description || null,
+        department: productData.department || null,
         category: productData.category || null,
         brand: productData.brand || null,
         image_url: imageUrl,
@@ -210,9 +201,9 @@ export async function PUT(request: Request) {
     }
 
     const updateData: Record<string, unknown> = {
-      client_id: productData.client_id || null,
       name: productData.name,
       description: productData.description || null,
+      department: productData.department || null,
       category: productData.category || null,
       brand: productData.brand || null,
     };

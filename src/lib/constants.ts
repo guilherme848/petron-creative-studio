@@ -1,17 +1,119 @@
 // Categorias de produtos para lojas de material de construção
-export const CATEGORIAS_PRODUTO = [
-  "Pisos",
-  "Azulejos",
-  "Porcelanato",
-  "Tintas",
-  "Portas",
-  "Forro PVC",
-  "Telhas",
-  "Hidráulica",
-  "Elétrica",
-  "Ferramentas",
-  "Outros",
-] as const;
+// Estrutura: Departamento → Categorias
+export const DEPARTAMENTOS_MATCON = {
+  "Revestimentos": [
+    "Porcelanato",
+    "Piso Cerâmico",
+    "Azulejo",
+    "Piso Vinílico / SPC",
+    "Piso Laminado",
+    "Pastilha",
+    "Pedra Natural",
+    "Rodapé / Soleira",
+    "Rejunte / Argamassa Colante",
+  ],
+  "Tintas e Acabamentos": [
+    "Tinta Imobiliária",
+    "Tinta Esmalte",
+    "Verniz / Stain",
+    "Massa Corrida / PVA",
+    "Textura / Grafiato",
+    "Impermeabilizante",
+    "Selador / Fundo",
+    "Acessórios de Pintura",
+  ],
+  "Louças e Metais": [
+    "Vaso Sanitário",
+    "Cuba / Lavatório",
+    "Pia de Cozinha",
+    "Torneira / Misturador",
+    "Chuveiro / Ducha",
+    "Acessórios de Banheiro",
+    "Tanque",
+  ],
+  "Hidráulica": [
+    "Tubo PVC / CPVC",
+    "Conexões",
+    "Registro / Válvula",
+    "Caixa d'Água",
+    "Bomba d'Água",
+    "Aquecedor",
+    "Fossa / Esgoto",
+  ],
+  "Elétrica e Iluminação": [
+    "Fio / Cabo",
+    "Disjuntor / Quadro",
+    "Tomada / Interruptor",
+    "Luminária",
+    "Lâmpada LED",
+    "Fita LED",
+    "Painel Solar",
+  ],
+  "Portas e Janelas": [
+    "Porta de Madeira",
+    "Porta de Alumínio",
+    "Porta de Correr",
+    "Janela de Alumínio",
+    "Janela de Vidro",
+    "Fechadura / Dobradiça",
+    "Batente / Guarnição",
+  ],
+  "Cobertura e Forro": [
+    "Telha Cerâmica",
+    "Telha Fibrocimento",
+    "Telha Metálica / Sanduíche",
+    "Telha Transparente",
+    "Forro PVC",
+    "Forro Gesso / Drywall",
+    "Calha / Rufo",
+  ],
+  "Cimento e Argamassa": [
+    "Cimento CP II / CP V",
+    "Argamassa Pronta",
+    "Concreto / Graute",
+    "Cal",
+    "Areia / Pedra / Brita",
+  ],
+  "Estrutura e Alvenaria": [
+    "Tijolo / Bloco",
+    "Laje Pré-Moldada",
+    "Vergalhão / Ferro",
+    "Tela / Arame",
+    "Madeira Estrutural",
+    "Drywall / Steel Frame",
+  ],
+  "Ferragens e Ferramentas": [
+    "Parafuso / Bucha",
+    "Ferramenta Manual",
+    "Ferramenta Elétrica",
+    "Disco / Serra / Broca",
+    "EPI",
+    "Escada / Andaime",
+  ],
+  "Jardim e Área Externa": [
+    "Piso Externo / Cimentício",
+    "Grama Sintética",
+    "Pergolado / Deck",
+    "Churrasqueira / Forno",
+    "Mangueira / Irrigação",
+  ],
+  "Móveis e Decoração": [
+    "Bancada / Tampo",
+    "Gabinete de Banheiro",
+    "Gabinete de Cozinha",
+    "Prateleira / Suporte",
+    "Espelho",
+    "Papel de Parede",
+  ],
+} as const;
+
+// Lista flat de todas as categorias (para compatibilidade)
+export const CATEGORIAS_PRODUTO = Object.entries(DEPARTAMENTOS_MATCON).flatMap(
+  ([, cats]) => [...cats]
+);
+
+// Lista de departamentos
+export const DEPARTAMENTOS = Object.keys(DEPARTAMENTOS_MATCON) as (keyof typeof DEPARTAMENTOS_MATCON)[];
 
 // Tipos de preço promocional
 export const TIPOS_PRECO = [

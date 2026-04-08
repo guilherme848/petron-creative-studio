@@ -42,11 +42,6 @@ const menuItems = [
     icon: Package,
   },
   {
-    title: "Criar Criativo",
-    href: "/criar",
-    icon: ImagePlus,
-  },
-  {
     title: "Biblioteca",
     href: "/biblioteca",
     icon: Images,
@@ -84,6 +79,22 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-4">
+        {/* CTA principal */}
+        <div className="px-2 mb-4">
+          <Link href="/criar">
+            <button
+              className={`w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all btn-micro ${
+                pathname === "/criar"
+                  ? "bg-[#F97316] text-white shadow-lg shadow-orange-500/30"
+                  : "bg-gradient-to-r from-[#F97316] to-[#f43f5e] text-white shadow-lg shadow-orange-500/20 hover:shadow-orange-500/35"
+              }`}
+            >
+              <ImagePlus className="h-4 w-4" />
+              Criar Criativo
+            </button>
+          </Link>
+        </div>
+
         <SidebarGroup>
           <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">
             Navegação

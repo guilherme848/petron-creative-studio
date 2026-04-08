@@ -12,6 +12,10 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+import {
   ImageIcon,
   Search,
   Download,
@@ -21,6 +25,8 @@ import {
   Filter,
   X,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -48,6 +54,7 @@ export default function BibliotecaPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [lightboxCreative, setLightboxCreative] = useState<Creative | null>(null);
 
   async function fetchCreatives() {
     try {
@@ -135,8 +142,65 @@ export default function BibliotecaPage() {
     return aName.localeCompare(bName);
   });
 
+  function navigateLightbox(direction: number) {
+    if (!lightboxCreative) return;
+    const idx = filtered.findIndex((c) => c.id === lightboxCreative.id);
+    const next = idx + direction;
+    if (next >= 0 && next < filtered.length) {
+      setLightboxCreative(filtered[next]);
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Lightbox */}
+      <Dialog open={!!lightboxCreative} onOpenChange={() => setLightboxCreative(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-black/95 border-border/20">
+          {lightboxCreative?.image_url && (
+            <div className="relative flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lightboxCreative.image_url}
+                alt={lightboxCreative.clients?.name || "Criativo"}
+                className="max-h-[80vh] w-auto rounded-lg object-contain"
+              />
+              {/* Nav arrows */}
+              <button
+                type="button"
+                onClick={() => navigateLightbox(-1)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateLightbox(1)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-colors"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              {/* Info bar */}
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">{lightboxCreative.clients?.name || "Sem cliente"}</p>
+                  <p className="text-white/50 text-xs">
+                    {lightboxCreative.format} &middot;{" "}
+                    {new Date(lightboxCreative.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDownload(lightboxCreative.image_url!, lightboxCreative.clients?.name || "criativo")}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm hover:bg-white/25 transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -277,7 +341,8 @@ export default function BibliotecaPage() {
               {clientCreatives.map((creative) => (
                 <div
                   key={creative.id}
-                  className="group relative rounded-xl overflow-hidden border border-border/40 bg-card/50 hover:border-border hover:shadow-lg transition-all"
+                  className="group relative rounded-xl overflow-hidden border border-border/40 bg-card/50 hover:border-border hover:shadow-lg transition-all cursor-pointer"
+                  onClick={() => creative.image_url && setLightboxCreative(creative)}
                 >
                   {creative.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element

@@ -233,6 +233,8 @@ export default function CriarPage() {
   const [clienteSearch, setClienteSearch] = useState("");
   const [clienteNichoFilter, setClienteNichoFilter] = useState<string>("matcon");
   const [usarProdutoCadastrado, setUsarProdutoCadastrado] = useState(false);
+  const [salvarProdutoNoBanco, setSalvarProdutoNoBanco] = useState(false);
+  const [salvandoProduto, setSalvandoProduto] = useState(false);
 
   // Step 4: 3 variações
   const [variations, setVariations] = useState<VariationResult[]>([]);
@@ -256,26 +258,15 @@ export default function CriarPage() {
 
   const cliente = clientes.find((c) => c.id === state.clienteId);
 
-  // Buscar produtos ao entrar no step 3 ou 5 — do cliente + sem vínculo
+  // Buscar todos os produtos ao entrar no step 3 ou 5
   useEffect(() => {
-    if ((step === 3 || step === 5) && state.clienteId) {
+    if (step === 3 || step === 5) {
       async function fetchProducts() {
         setLoadingProdutos(true);
         try {
-          // Buscar produtos do cliente E produtos sem vínculo (client_id null)
-          const [resClient, resAll] = await Promise.all([
-            fetch(`/api/products?client_id=${state.clienteId}`),
-            fetch(`/api/products`),
-          ]);
-          const clientData = resClient.ok ? await resClient.json() : [];
-          const allData = resAll.ok ? await resAll.json() : [];
-
-          // Combinar: produtos do cliente + produtos sem vínculo (sem duplicar)
-          const clientIds = new Set(clientData.map((p: ProdutoAPI) => p.id));
-          const unlinked = allData.filter(
-            (p: ProdutoAPI) => !clientIds.has(p.id)
-          );
-          setProdutosCliente([...clientData, ...unlinked]);
+          const res = await fetch("/api/products");
+          const data = res.ok ? await res.json() : [];
+          setProdutosCliente(data);
         } catch {
           console.error("Erro ao carregar produtos");
         } finally {
@@ -284,7 +275,7 @@ export default function CriarPage() {
       }
       fetchProducts();
     }
-  }, [step, state.clienteId]);
+  }, [step]);
 
   const update = (partial: Partial<CreativeState>) =>
     setState((prev) => ({ ...prev, ...partial }));
@@ -1260,6 +1251,19 @@ export default function CriarPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Salvar produto no banco */}
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={salvarProdutoNoBanco}
+                    onChange={(e) => setSalvarProdutoNoBanco(e.target.checked)}
+                    className="rounded border-border accent-orange-500 h-4 w-4"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Salvar este produto no banco para reutilizar depois
+                  </span>
+                </label>
                   </>
                 )}
 
@@ -2030,11 +2034,58 @@ export default function CriarPage() {
             {step < 6 ? (
               <Button
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                onClick={() => setStep((s) => Math.min(6, s + 1))}
-                disabled={!canAdvance()}
+                onClick={async () => {
+                  // Ao sair do step 3 com "Criar do zero" e checkbox ativo, salva o produto
+                  if (step === 3 && !usarProdutoCadastrado && salvarProdutoNoBanco && state.produtoNome.trim()) {
+                    // Verificar duplicidade por nome
+                    const nomeNorm = state.produtoNome.trim().toLowerCase();
+                    const duplicado = produtosCliente.find(
+                      (p) => p.name.toLowerCase() === nomeNorm
+                    );
+                    if (duplicado) {
+                      toast.info(`Produto "${duplicado.name}" já existe no banco. Usando o cadastrado.`);
+                    } else {
+                      setSalvandoProduto(true);
+                      try {
+                        const fd = new FormData();
+                        if (state.produtoFotoFile) {
+                          fd.append("image", state.produtoFotoFile);
+                        }
+                        fd.append("data", JSON.stringify({
+                          name: state.produtoNome.trim(),
+                          description: state.produtoSpec || null,
+                          category: null,
+                          department: null,
+                          brand: null,
+                        }));
+                        const res = await fetch("/api/products", { method: "POST", body: fd });
+                        if (res.ok) {
+                          toast.success("Produto salvo no banco!");
+                        } else {
+                          toast.error("Erro ao salvar produto no banco");
+                        }
+                      } catch {
+                        toast.error("Erro ao salvar produto");
+                      } finally {
+                        setSalvandoProduto(false);
+                      }
+                    }
+                  }
+                  setStep((s) => Math.min(6, s + 1));
+                }}
+                disabled={!canAdvance() || salvandoProduto}
               >
-                {step === 5 ? "Exportar" : "Próximo"}
-                <ChevronRight className="h-4 w-4 ml-1" />
+                {salvandoProduto ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    {step === 5 ? "Exportar" : "Próximo"}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
               </Button>
             ) : (
               <div />

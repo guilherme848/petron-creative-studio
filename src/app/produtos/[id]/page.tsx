@@ -27,28 +27,22 @@ import {
   Save,
   ArrowLeft,
   Package,
-  Users,
   ImageIcon,
   Loader2,
   Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CATEGORIAS_PRODUTO } from "@/lib/constants";
+import { DEPARTAMENTOS_MATCON, DEPARTAMENTOS } from "@/lib/constants";
 
 interface ProdutoForm {
   nome: string;
   descricao: string;
+  departamento: string;
   categoria: string;
   marca: string;
-  cliente: string;
   imagemUrl: string | null;
   imagemFile: File | null;
-}
-
-interface ClientOption {
-  id: string;
-  name: string;
 }
 
 export default function EditarProdutoPage() {
@@ -57,9 +51,9 @@ export default function EditarProdutoPage() {
   const [form, setForm] = useState<ProdutoForm>({
     nome: "",
     descricao: "",
+    departamento: "",
     categoria: "",
     marca: "",
-    cliente: "",
     imagemUrl: null,
     imagemFile: null,
   });
@@ -67,26 +61,6 @@ export default function EditarProdutoPage() {
   const [loading, setLoading] = useState(true);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [clientes, setClientes] = useState<ClientOption[]>([]);
-  const [loadingClientes, setLoadingClientes] = useState(true);
-
-  // ── Fetch Clients ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    async function fetchClients() {
-      try {
-        const res = await fetch("/api/clients");
-        if (!res.ok) throw new Error("Erro ao buscar clientes");
-        const data = await res.json();
-        setClientes(data.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
-      } catch {
-        console.error("Erro ao carregar clientes");
-      } finally {
-        setLoadingClientes(false);
-      }
-    }
-    fetchClients();
-  }, []);
 
   // ── Fetch Product Data ────────────────────────────────────────────────
 
@@ -107,9 +81,9 @@ export default function EditarProdutoPage() {
         setForm({
           nome: product.name || "",
           descricao: product.description || "",
+          departamento: product.department || "",
           categoria: product.category || "",
           marca: product.brand || "",
-          cliente: product.client_id || "",
           imagemUrl: product.image_treated_url || product.image_url || null,
           imagemFile: null,
         });
@@ -166,9 +140,9 @@ export default function EditarProdutoPage() {
         id: params.id,
         name: form.nome.trim(),
         description: form.descricao || null,
+        department: form.departamento || null,
         category: form.categoria || null,
         brand: form.marca || null,
-        client_id: form.cliente || null,
       };
 
       formData.append("data", JSON.stringify(productData));
@@ -273,20 +247,20 @@ export default function EditarProdutoPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label>Departamento</Label>
                   <Select
-                    value={form.categoria ?? ""}
+                    value={form.departamento ?? ""}
                     onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, categoria: val ?? "" }))
+                      setForm((prev) => ({ ...prev, departamento: val ?? "", categoria: "" }))
                     }
                   >
                     <SelectTrigger className="h-[42px]">
-                      <SelectValue placeholder="Selecione a categoria" />
+                      <SelectValue placeholder="Selecione o departamento" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIAS_PRODUTO.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
+                      {DEPARTAMENTOS.map((dep) => (
+                        <SelectItem key={dep} value={dep}>
+                          {dep}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -294,51 +268,40 @@ export default function EditarProdutoPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="marca">Marca / Fabricante</Label>
-                  <Input
-                    id="marca"
-                    placeholder="Ex: Portobello, Eliane, Suvinil"
-                    className="h-[42px]"
-                    value={form.marca}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, marca: e.target.value }))
+                  <Label>Categoria</Label>
+                  <Select
+                    value={form.categoria ?? ""}
+                    onValueChange={(val) =>
+                      setForm((prev) => ({ ...prev, categoria: val ?? "" }))
                     }
-                  />
+                    disabled={!form.departamento}
+                  >
+                    <SelectTrigger className="h-[42px]">
+                      <SelectValue placeholder={form.departamento ? "Selecione a categoria" : "Escolha o departamento primeiro"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {form.departamento &&
+                        DEPARTAMENTOS_MATCON[form.departamento as keyof typeof DEPARTAMENTOS_MATCON]?.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Cliente */}
-          <Card className="rounded-2xl border-border/50 bg-card/80">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
-                  <Users className="h-4 w-4 text-blue-500" />
-                </div>
-                Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
               <div className="space-y-2">
-                <Label>Vincular ao cliente</Label>
-                <Select
-                  value={form.cliente ?? ""}
-                  onValueChange={(val) =>
-                    setForm((prev) => ({ ...prev, cliente: val ?? "" }))
+                <Label htmlFor="marca">Marca / Fabricante</Label>
+                <Input
+                  id="marca"
+                  placeholder="Ex: Portobello, Eliane, Suvinil"
+                  className="h-[42px]"
+                  value={form.marca}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, marca: e.target.value }))
                   }
-                >
-                  <SelectTrigger className="h-[42px]">
-                    <SelectValue placeholder={loadingClientes ? "Carregando..." : "Selecione o cliente"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
             </CardContent>
           </Card>
@@ -454,6 +417,14 @@ export default function EditarProdutoPage() {
                     </p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
+                    {form.departamento && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] bg-teal-500/10 text-teal-600 border-0"
+                      >
+                        {form.departamento}
+                      </Badge>
+                    )}
                     {form.categoria && (
                       <Badge
                         variant="secondary"
@@ -471,12 +442,6 @@ export default function EditarProdutoPage() {
                       </Badge>
                     )}
                   </div>
-                  {form.cliente && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Users className="h-3 w-3" />
-                      {clientes.find((c) => c.id === form.cliente)?.name || form.cliente}
-                    </p>
-                  )}
                 </div>
               </div>
             </CardContent>
