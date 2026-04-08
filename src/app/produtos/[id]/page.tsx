@@ -33,13 +33,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { DEPARTAMENTOS_MATCON, DEPARTAMENTOS } from "@/lib/constants";
+import { CATEGORIAS_MATCON, CATEGORIAS } from "@/lib/constants";
 
 interface ProdutoForm {
   nome: string;
   descricao: string;
-  departamento: string;
   categoria: string;
+  subcategoria: string;
   marca: string;
   imagemUrl: string | null;
   imagemFile: File | null;
@@ -51,8 +51,8 @@ export default function EditarProdutoPage() {
   const [form, setForm] = useState<ProdutoForm>({
     nome: "",
     descricao: "",
-    departamento: "",
     categoria: "",
+    subcategoria: "",
     marca: "",
     imagemUrl: null,
     imagemFile: null,
@@ -61,8 +61,6 @@ export default function EditarProdutoPage() {
   const [loading, setLoading] = useState(true);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // ── Fetch Product Data ────────────────────────────────────────────────
 
   useEffect(() => {
     async function fetchProduct() {
@@ -81,8 +79,8 @@ export default function EditarProdutoPage() {
         setForm({
           nome: product.name || "",
           descricao: product.description || "",
-          departamento: product.department || "",
           categoria: product.category || "",
+          subcategoria: product.subcategory || "",
           marca: product.brand || "",
           imagemUrl: product.image_treated_url || product.image_url || null,
           imagemFile: null,
@@ -96,8 +94,6 @@ export default function EditarProdutoPage() {
 
     fetchProduct();
   }, [params.id, router]);
-
-  // ── File Handling ─────────────────────────────────────────────────────
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -120,8 +116,6 @@ export default function EditarProdutoPage() {
     setForm((prev) => ({ ...prev, imagemUrl: null, imagemFile: null }));
   };
 
-  // ── Save ──────────────────────────────────────────────────────────────
-
   const handleSave = async () => {
     if (!form.nome.trim()) {
       toast.error("O nome do produto é obrigatório.");
@@ -140,8 +134,8 @@ export default function EditarProdutoPage() {
         id: params.id,
         name: form.nome.trim(),
         description: form.descricao || null,
-        department: form.departamento || null,
         category: form.categoria || null,
+        subcategory: form.subcategoria || null,
         brand: form.marca || null,
       };
 
@@ -168,8 +162,6 @@ export default function EditarProdutoPage() {
     }
   };
 
-  // ── Loading State ─────────────────────────────────────────────────────
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -180,7 +172,6 @@ export default function EditarProdutoPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/produtos">
@@ -189,21 +180,14 @@ export default function EditarProdutoPage() {
             </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">
-              Editar Produto
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Atualize as informações do produto.
-            </p>
+            <h2 className="text-2xl font-bold tracking-tight">Editar Produto</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Atualize as informações do produto.</p>
           </div>
         </div>
       </div>
 
-      {/* Grid: Form + Preview */}
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        {/* Form Column */}
         <div className="space-y-5 stagger-children">
-          {/* Dados do Produto */}
           <Card className="rounded-2xl border-border/50 bg-card/80">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -215,77 +199,40 @@ export default function EditarProdutoPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="nome">
-                  Nome do produto <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="nome"
-                  placeholder="Ex: Piso Porcelanato 60x60"
-                  className="h-[42px]"
-                  value={form.nome}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, nome: e.target.value }))
-                  }
-                />
+                <Label htmlFor="nome">Nome do produto <span className="text-destructive">*</span></Label>
+                <Input id="nome" placeholder="Ex: Piso Porcelanato 60x60" className="h-[42px]" value={form.nome} onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="descricao">Descrição / Especificações</Label>
-                <Textarea
-                  id="descricao"
-                  placeholder="Ex: Bold, retificado, acabamento acetinado"
-                  rows={3}
-                  value={form.descricao}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      descricao: e.target.value,
-                    }))
-                  }
-                />
+                <Textarea id="descricao" placeholder="Ex: Bold, retificado, acabamento acetinado" rows={3} value={form.descricao} onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))} />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Departamento</Label>
-                  <Select
-                    value={form.departamento ?? ""}
-                    onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, departamento: val ?? "", categoria: "" }))
-                    }
-                  >
+                  <Label>Categoria</Label>
+                  <Select value={form.categoria ?? ""} onValueChange={(val) => setForm((prev) => ({ ...prev, categoria: val ?? "", subcategoria: "" }))}>
                     <SelectTrigger className="h-[42px]">
-                      <SelectValue placeholder="Selecione o departamento" />
+                      <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DEPARTAMENTOS.map((dep) => (
-                        <SelectItem key={dep} value={dep}>
-                          {dep}
-                        </SelectItem>
+                      {CATEGORIAS.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select
-                    value={form.categoria ?? ""}
-                    onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, categoria: val ?? "" }))
-                    }
-                    disabled={!form.departamento}
-                  >
+                  <Label>Subcategoria</Label>
+                  <Select value={form.subcategoria ?? ""} onValueChange={(val) => setForm((prev) => ({ ...prev, subcategoria: val ?? "" }))} disabled={!form.categoria}>
                     <SelectTrigger className="h-[42px]">
-                      <SelectValue placeholder={form.departamento ? "Selecione a categoria" : "Escolha o departamento primeiro"} />
+                      <SelectValue placeholder={form.categoria ? "Selecione a subcategoria" : "Escolha a categoria primeiro"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {form.departamento &&
-                        DEPARTAMENTOS_MATCON[form.departamento as keyof typeof DEPARTAMENTOS_MATCON]?.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
+                      {form.categoria && CATEGORIAS_MATCON[form.categoria as keyof typeof CATEGORIAS_MATCON]?.map((sub) => (
+                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -293,20 +240,11 @@ export default function EditarProdutoPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="marca">Marca / Fabricante</Label>
-                <Input
-                  id="marca"
-                  placeholder="Ex: Portobello, Eliane, Suvinil"
-                  className="h-[42px]"
-                  value={form.marca}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, marca: e.target.value }))
-                  }
-                />
+                <Input id="marca" placeholder="Ex: Portobello, Eliane, Suvinil" className="h-[42px]" value={form.marca} onChange={(e) => setForm((prev) => ({ ...prev, marca: e.target.value }))} />
               </div>
             </CardContent>
           </Card>
 
-          {/* Imagem */}
           <Card className="rounded-2xl border-border/50 bg-card/80">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -319,151 +257,62 @@ export default function EditarProdutoPage() {
             <CardContent>
               {!form.imagemUrl ? (
                 <div
-                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${
-                    dragOver
-                      ? "border-orange-500 bg-orange-500/5"
-                      : "border-border/50 hover:border-orange-500/40 hover:bg-orange-500/[0.02]"
-                  }`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
+                  className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${dragOver ? "border-orange-500 bg-orange-500/5" : "border-border/50 hover:border-orange-500/40 hover:bg-orange-500/[0.02]"}`}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFile(file);
-                    }}
-                  />
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/10 mb-3">
-                    <Upload className="h-5 w-5 text-orange-500" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    Arraste a imagem ou clique para selecionar
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    PNG ou JPG
-                  </p>
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }} />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/10 mb-3"><Upload className="h-5 w-5 text-orange-500" /></div>
+                  <p className="text-sm font-medium text-foreground mb-1">Arraste a imagem ou clique para selecionar</p>
+                  <p className="text-xs text-muted-foreground">PNG ou JPG</p>
                 </div>
               ) : (
                 <div className="relative group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={form.imagemUrl}
-                    alt="Preview do produto"
-                    className="w-full max-h-64 object-contain rounded-xl border border-border/50 bg-muted/30"
-                  />
-                  <button
-                    onClick={removeImage}
-                    className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <img src={form.imagemUrl} alt="Preview do produto" className="w-full max-h-64 object-contain rounded-xl border border-border/50 bg-muted/30" />
+                  <button onClick={removeImage} className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-3 text-center">
-                O fundo será removido automaticamente ao salvar.
-              </p>
+              <p className="text-xs text-muted-foreground mt-3 text-center">O fundo será removido automaticamente ao salvar.</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Preview Column */}
         <div className="lg:sticky lg:top-[76px] lg:self-start space-y-4">
           <Card className="rounded-2xl border-border/50 bg-card/80 overflow-hidden">
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                Pré-visualização
-              </CardTitle>
+              <CardTitle className="flex items-center gap-2 text-sm"><Eye className="h-3.5 w-3.5 text-muted-foreground" /> Pré-visualização</CardTitle>
             </CardHeader>
             <Separator />
             <CardContent className="pt-5">
               <div className="space-y-4">
-                {/* Imagem Preview */}
                 <div className="aspect-square rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden">
                   {form.imagemUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={form.imagemUrl}
-                      alt="Produto"
-                      className="w-full h-full object-contain p-4"
-                    />
+                    <img src={form.imagemUrl} alt="Produto" className="w-full h-full object-contain p-4" />
                   ) : (
-                    <div className="text-center">
-                      <ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground/50">
-                        Sem imagem
-                      </p>
-                    </div>
+                    <div className="text-center"><ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground/50">Sem imagem</p></div>
                   )}
                 </div>
-
-                {/* Info */}
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-sm truncate">
-                    {form.nome || "Nome do produto"}
-                  </h4>
-                  {form.descricao && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {form.descricao}
-                    </p>
-                  )}
+                  <h4 className="font-semibold text-sm truncate">{form.nome || "Nome do produto"}</h4>
+                  {form.descricao && <p className="text-xs text-muted-foreground line-clamp-2">{form.descricao}</p>}
                   <div className="flex flex-wrap gap-1.5">
-                    {form.departamento && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] bg-teal-500/10 text-teal-600 border-0"
-                      >
-                        {form.departamento}
-                      </Badge>
-                    )}
-                    {form.categoria && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] bg-orange-500/10 text-orange-600 border-0"
-                      >
-                        {form.categoria}
-                      </Badge>
-                    )}
-                    {form.marca && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px]"
-                      >
-                        {form.marca}
-                      </Badge>
-                    )}
+                    {form.categoria && <Badge variant="secondary" className="text-[10px] bg-teal-500/10 text-teal-600 border-0">{form.categoria}</Badge>}
+                    {form.subcategoria && <Badge variant="secondary" className="text-[10px] bg-orange-500/10 text-orange-600 border-0">{form.subcategoria}</Badge>}
+                    {form.marca && <Badge variant="secondary" className="text-[10px]">{form.marca}</Badge>}
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Botões */}
           <div className="flex gap-2">
-            <Link href="/produtos" className="flex-1">
-              <Button variant="outline" className="w-full btn-micro">
-                Cancelar
-              </Button>
-            </Link>
-            <Button
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
+            <Link href="/produtos" className="flex-1"><Button variant="outline" className="w-full btn-micro">Cancelar</Button></Link>
+            <Button className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro" onClick={handleSave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               {saving ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </div>

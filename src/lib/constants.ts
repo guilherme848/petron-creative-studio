@@ -1,6 +1,6 @@
 // Categorias de produtos para lojas de material de construção
-// Estrutura: Departamento → Categorias
-export const DEPARTAMENTOS_MATCON = {
+// Estrutura: Categoria → Subcategorias
+export const CATEGORIAS_MATCON = {
   "Revestimentos": [
     "Porcelanato",
     "Piso Cerâmico",
@@ -107,13 +107,13 @@ export const DEPARTAMENTOS_MATCON = {
   ],
 } as const;
 
-// Lista flat de todas as categorias (para compatibilidade)
-export const CATEGORIAS_PRODUTO = Object.entries(DEPARTAMENTOS_MATCON).flatMap(
-  ([, cats]) => [...cats]
+// Lista flat de todas as subcategorias
+export const SUBCATEGORIAS_PRODUTO = Object.entries(CATEGORIAS_MATCON).flatMap(
+  ([, subs]) => [...subs]
 );
 
-// Lista de departamentos
-export const DEPARTAMENTOS = Object.keys(DEPARTAMENTOS_MATCON) as (keyof typeof DEPARTAMENTOS_MATCON)[];
+// Lista de categorias
+export const CATEGORIAS = Object.keys(CATEGORIAS_MATCON) as (keyof typeof CATEGORIAS_MATCON)[];
 
 // Tipos de preço promocional
 export const TIPOS_PRECO = [

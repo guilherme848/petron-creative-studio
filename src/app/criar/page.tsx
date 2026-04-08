@@ -77,6 +77,7 @@ interface ProdutoAPI {
   image_url: string | null;
   image_treated_url: string | null;
   category: string | null;
+  subcategory: string | null;
 }
 
 // -- Types --------------------------------------------------------------------
@@ -567,7 +568,7 @@ export default function CriarPage() {
       return [...prev, {
         id: product.id,
         name: product.name,
-        spec: product.category || "",
+        spec: product.subcategory || "",
         imageUrl: product.image_treated_url || product.image_url,
         price: state.preco,
         previousPrice: "",
@@ -1134,7 +1135,7 @@ export default function CriarPage() {
                                 const imageUrl = p.image_treated_url || p.image_url;
                                 update({
                                   produtoNome: p.name,
-                                  produtoSpec: p.category || "",
+                                  produtoSpec: p.subcategory || "",
                                   produtoFotoUrl: imageUrl,
                                   produtoFotoFile: null,
                                 });
@@ -1167,7 +1168,7 @@ export default function CriarPage() {
                               )}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{p.name}</p>
-                                {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
+                                {p.subcategory && <p className="text-xs text-muted-foreground">{p.subcategory}</p>}
                               </div>
                               {isSelected && (
                                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shrink-0">
@@ -1602,7 +1603,7 @@ export default function CriarPage() {
                               const prods = produtosCliente.slice(0, n).map((p) => ({
                                 id: p.id,
                                 name: p.name,
-                                spec: p.category || "",
+                                spec: p.subcategory || "",
                                 imageUrl: p.image_treated_url || p.image_url,
                                 price: state.preco,
                                 previousPrice: "",
@@ -1653,7 +1654,7 @@ export default function CriarPage() {
                               </div>
                             )}
                             <span className="font-medium truncate">{p.name}</span>
-                            {p.category && <span className="text-muted-foreground ml-auto shrink-0">{p.category}</span>}
+                            {p.subcategory && <span className="text-muted-foreground ml-auto shrink-0">{p.subcategory}</span>}
                           </button>
                         );
                       })}
@@ -2055,7 +2056,7 @@ export default function CriarPage() {
                           name: state.produtoNome.trim(),
                           description: state.produtoSpec || null,
                           category: null,
-                          department: null,
+                          subcategory: null,
                           brand: null,
                         }));
                         const res = await fetch("/api/products", { method: "POST", body: fd });

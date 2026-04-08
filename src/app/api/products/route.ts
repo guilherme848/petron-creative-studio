@@ -145,8 +145,8 @@ export async function POST(request: Request) {
       .insert({
         name: productData.name,
         description: productData.description || null,
-        department: productData.department || null,
         category: productData.category || null,
+        subcategory: productData.subcategory || null,
         brand: productData.brand || null,
         image_url: imageUrl,
         image_treated_url: imageTreatedUrl,
@@ -203,8 +203,8 @@ export async function PUT(request: Request) {
     const updateData: Record<string, unknown> = {
       name: productData.name,
       description: productData.description || null,
-      department: productData.department || null,
       category: productData.category || null,
+      subcategory: productData.subcategory || null,
       brand: productData.brand || null,
     };
 

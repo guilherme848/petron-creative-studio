@@ -33,13 +33,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { DEPARTAMENTOS_MATCON, DEPARTAMENTOS } from "@/lib/constants";
+import { CATEGORIAS_MATCON, CATEGORIAS } from "@/lib/constants";
 
 interface ProdutoForm {
   nome: string;
   descricao: string;
-  departamento: string;
   categoria: string;
+  subcategoria: string;
   marca: string;
   imagemUrl: string | null;
   imagemFile: File | null;
@@ -48,8 +48,8 @@ interface ProdutoForm {
 const initialForm: ProdutoForm = {
   nome: "",
   descricao: "",
-  departamento: "",
   categoria: "",
+  subcategoria: "",
   marca: "",
   imagemUrl: null,
   imagemFile: null,
@@ -100,8 +100,8 @@ export default function NovoProdutoPage() {
       const productData = {
         name: form.nome.trim(),
         description: form.descricao || null,
-        department: form.departamento || null,
         category: form.categoria || null,
+        subcategory: form.subcategoria || null,
         brand: form.marca || null,
       };
 
@@ -197,20 +197,20 @@ export default function NovoProdutoPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Departamento</Label>
+                  <Label>Categoria</Label>
                   <Select
-                    value={form.departamento}
+                    value={form.categoria}
                     onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, departamento: val ?? "", categoria: "" }))
+                      setForm((prev) => ({ ...prev, categoria: val ?? "", subcategoria: "" }))
                     }
                   >
                     <SelectTrigger className="h-[42px]">
-                      <SelectValue placeholder="Selecione o departamento" />
+                      <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {DEPARTAMENTOS.map((dep) => (
-                        <SelectItem key={dep} value={dep}>
-                          {dep}
+                      {CATEGORIAS.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -218,22 +218,22 @@ export default function NovoProdutoPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label>Subcategoria</Label>
                   <Select
-                    value={form.categoria}
+                    value={form.subcategoria}
                     onValueChange={(val) =>
-                      setForm((prev) => ({ ...prev, categoria: val ?? "" }))
+                      setForm((prev) => ({ ...prev, subcategoria: val ?? "" }))
                     }
-                    disabled={!form.departamento}
+                    disabled={!form.categoria}
                   >
                     <SelectTrigger className="h-[42px]">
-                      <SelectValue placeholder={form.departamento ? "Selecione a categoria" : "Escolha o departamento primeiro"} />
+                      <SelectValue placeholder={form.categoria ? "Selecione a subcategoria" : "Escolha a categoria primeiro"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {form.departamento &&
-                        DEPARTAMENTOS_MATCON[form.departamento as keyof typeof DEPARTAMENTOS_MATCON]?.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
+                      {form.categoria &&
+                        CATEGORIAS_MATCON[form.categoria as keyof typeof CATEGORIAS_MATCON]?.map((sub) => (
+                          <SelectItem key={sub} value={sub}>
+                            {sub}
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -365,20 +365,20 @@ export default function NovoProdutoPage() {
                     </p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
-                    {form.departamento && (
+                    {form.categoria && (
                       <Badge
                         variant="secondary"
                         className="text-[10px] bg-teal-500/10 text-teal-600 border-0"
                       >
-                        {form.departamento}
+                        {form.categoria}
                       </Badge>
                     )}
-                    {form.categoria && (
+                    {form.subcategoria && (
                       <Badge
                         variant="secondary"
                         className="text-[10px] bg-orange-500/10 text-orange-600 border-0"
                       >
-                        {form.categoria}
+                        {form.subcategoria}
                       </Badge>
                     )}
                     {form.marca && (
