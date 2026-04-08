@@ -8,6 +8,160 @@ const supabase = createClient(
 );
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
+// ─── Prompt Builder ──────────────────────────────────────────────────────────
+
+function buildPrompt(opts: {
+  clientName: string;
+  primaryColor: string;
+  promotionName: string;
+  productName: string;
+  productSpec?: string;
+  priceBlock: string;
+  ctaText: string;
+  phone?: string;
+  storeAddress?: string;
+  validityBlock?: string;
+  styleVariation?: number;
+  hasLogo: boolean;
+  hasProductImage: boolean;
+  hasRef: boolean;
+  adjustmentPrompt?: string;
+}): string {
+
+  // Variações de estilo
+  const styles: Record<number, string> = {
+    1: `DIREÇÃO DE ESTILO — IMPACTO COMERCIAL:
+Composição com fundo escuro/texturizado do universo da construção (concreto, canteiro de obras, luz dourada industrial).
+Produto em destaque GRANDE à direita com iluminação de estúdio e composição de profundidade (produto na frente + empilhados atrás).
+Nome do produto em tipografia 3D extrudada dourada/metálica no canto superior esquerdo, com peso visual forte.
+Selo 3D premium no canto superior direito com acabamento metálico dourado, brilho, reflexo e profundidade realista.
+Preço com fundo amarelo/dourado como etiqueta de varejo.
+Incluir 3 bullet points de benefício do produto com ícones (durabilidade, rendimento, acabamento).
+CTA em botão verde WhatsApp no rodapé.
+Atmosfera: obra sofisticada, luz quente, partículas douradas.`,
+
+    2: `DIREÇÃO DE ESTILO — PREMIUM MODERNO:
+Background gradiente sólido na cor da marca para tons escuros, com texturas geométricas sutis.
+Produto centralizado com iluminação dramática de estúdio, sombra pronunciada, reflexo no piso.
+Nome do produto em tipografia sans-serif extra-bold branca, gigante, dominando o topo.
+Selo 3D no topo com tratamento cromado/metálico, efeito de profundidade com brilho realista.
+Preço em bloco limpo com badge "APENAS" ou "POR" em cor da marca.
+Layout organizado com bastante respiro visual — nada apertado.
+CTA em barra inferior full-width verde com ícone WhatsApp.
+Atmosfera: catálogo premium, campanha de performance, sofisticado.`,
+
+    3: `DIREÇÃO DE ESTILO — ENERGIA VAREJO:
+Background vibrante na cor da marca com gradiente para preto, elementos 3D decorativos flutuando (cifrões dourados, moedas, confetes, fitas metálicas).
+Selo 3D gigante no topo com letras extrudadas, sombras fortes e brilho metálico — deve parecer uma peça autoral de varejo brasileiro.
+Produto à direita com iluminação quente e sombra realista.
+Preço ENORME à esquerda com tipografia ultra-bold, centavos em superscript.
+Badge de desconto circular 3D (XX% OFF) se aplicável.
+Nome do produto em bold uppercase abaixo do selo.
+CTA em botão verde arredondado com texto bold branco.
+Atmosfera: Black Friday, feirão, mega oferta — urgência e oportunidade.`,
+  };
+
+  const randomSeed = Math.floor(Math.random() * 99999);
+  const styleBlock = opts.styleVariation ? (styles[opts.styleVariation] || styles[1]) : styles[1];
+
+  return `Crie uma arte promocional premium para uma loja de materiais de construção, com visual altamente profissional, moderno, impactante e comercialmente persuasivo. A peça deve parecer criada por um diretor de arte sênior especializado em varejo, performance e campanhas promocionais do setor de construção civil no Brasil.
+
+A composição deve ser limpa, forte e organizada, com foco total em conversão e leitura rápida. O produto anunciado deve ser o protagonista visual da peça, com destaque absoluto para oferta, preço e condição de pagamento.
+
+═══════════════════════════════════════
+DADOS DA ARTE (inserir exatamente)
+═══════════════════════════════════════
+
+1. Nome do produto: "${opts.productName}"
+   Tipografia forte, grande, legível e comercial.
+
+${opts.productSpec ? `2. Descrição do produto: "${opts.productSpec}"
+   Descrição curta, objetiva e vendedora.` : ""}
+
+3. Preço em destaque:
+   ${opts.priceBlock}
+   A tipografia do preço deve ser EXTREMAMENTE chamativa, sólida, elegante e com sensação de oportunidade real.
+   O preço é um dos maiores pontos visuais da arte. Formato brasileiro: R$, vírgula como decimal.
+   NUNCA usar ¢, €, $ ou qualquer outro símbolo de moeda além de R$.
+
+4. CTA: "${opts.ctaText}"
+   Botão verde WhatsApp com texto bold branco, alto impacto comercial.
+
+${opts.phone ? `5. Telefone/WhatsApp: "${opts.phone}" — exibir próximo ao CTA com ícone WhatsApp.` : ""}
+
+${opts.storeAddress ? `6. Endereço: "${opts.storeAddress}" — texto pequeno no rodapé com ícone de localização.` : ""}
+
+${opts.validityBlock ? `7. Validade: ${opts.validityBlock}` : "7. Rodapé: *IMAGEM MERAMENTE ILUSTRATIVA"}
+
+8. Selo 3D promocional: "${opts.promotionName}"
+   Criar selo 3D premium com aparência realista e acabamento de artista gráfico profissional.
+   O selo deve ter profundidade, brilho, textura refinada, luz e sombra bem trabalhadas.
+   NÃO pode parecer genérico ou amador. Deve transmitir valor, urgência e sofisticação comercial.
+
+═══════════════════════════════════════
+IMAGENS FORNECIDAS
+═══════════════════════════════════════
+
+${opts.hasRef ? "• IMAGEM DE REFERÊNCIA DE ESTILO: replique a composição, layout e estética visual dessa referência. Mude apenas produto, nome e preço." : ""}
+${opts.hasLogo ? `• LOGO da loja "${opts.clientName}": usar EXATAMENTE como fornecida, sem modificação. Posicionar no canto superior ou próximo ao selo.` : `• Nome da loja: "${opts.clientName}" — criar badge/emblema profissional.`}
+${opts.hasProductImage ? "• FOTO REAL DO PRODUTO: usar EXATAMENTE a foto fornecida, sem redesenhar. Exibir GRANDE (35-50% da área), com sombra realista e iluminação de estúdio." : `• Gerar imagem fotorealista do produto "${opts.productName}" com iluminação de estúdio profissional.`}
+
+═══════════════════════════════════════
+DIREÇÃO DE ARTE
+═══════════════════════════════════════
+
+${styleBlock}
+
+Cor primária da marca: ${opts.primaryColor}
+
+═══════════════════════════════════════
+QUALIDADE PROFISSIONAL (OBRIGATÓRIO)
+═══════════════════════════════════════
+
+A arte deve ter linguagem visual típica de campanhas promocionais de lojas de materiais de construção brasileiras, com execução refinada, moderna e premium. Misturar apelo comercial forte com estética profissional de alto padrão.
+
+Requisitos visuais:
+• Composição publicitária de alta conversão
+• Fundo sofisticado com textura ou elementos do universo da construção
+• Contraste forte entre fundo e informações principais
+• Uso estratégico de cores que transmitam força, confiança, preço bom e urgência
+• Visual de encarte premium + anúncio digital de performance
+• Acabamento polido, nítido e realista
+• Iluminação publicitária bem resolvida
+• Sombras e profundidade bem aplicadas
+• Organização impecável da informação
+• Hierarquia visual clara: Selo > Produto > Preço > Nome > CTA
+
+Hierarquia tipográfica:
+• Produto: tipografia 3D ou extra-bold, dominante
+• Preço: MAIOR elemento textual, impossível não ver
+• CTA: contraste máximo (verde + branco)
+• Detalhes: legíveis mas não competem com preço/produto
+
+═══════════════════════════════════════
+RESTRIÇÕES (NÃO FAZER)
+═══════════════════════════════════════
+
+• NÃO infantilizar a arte
+• NÃO usar excesso de elementos
+• NÃO usar visual genérico de marketplace
+• NÃO usar selo simples ou chapado (deve ser 3D premium)
+• NÃO deixar o preço perdido ou pequeno
+• NÃO comprometer leitura no mobile
+• NÃO exagerar nos efeitos a ponto de parecer amador
+• NÃO criar aparência de panfleto barato
+• NÃO escrever texto em inglês — tudo em português brasileiro
+• Tudo deve parecer profissional, comercial e altamente vendável
+
+Formato: QUADRADO 1080x1080.
+A peça final deve parecer criada por uma agência sênior especializada em varejo e tráfego pago, pronta para Instagram, Facebook Ads ou campanha promocional local de alto impacto.
+
+(seed: ${randomSeed})
+${opts.adjustmentPrompt ? `\nAJUSTE SOLICITADO: ${opts.adjustmentPrompt}` : ""}`;
+}
+
+// ─── Route Handler ───────────────────────────────────────────────────────────
+
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
   if (!checkRateLimit(ip)) {
@@ -22,6 +176,7 @@ export async function POST(request: Request) {
     const dataRaw = formData.get("data") as string;
     const logoFile = formData.get("logo") as File | null;
     const productImageFile = formData.get("productImage") as File | null;
+    const referenceImageFile = formData.get("referenceImage") as File | null;
 
     if (!dataRaw) {
       return NextResponse.json({ error: "Dados obrigatórios" }, { status: 400 });
@@ -30,7 +185,6 @@ export async function POST(request: Request) {
     const {
       clientName,
       clientColors,
-      clientFonts,
       promotionName,
       productName,
       productSpec,
@@ -51,14 +205,11 @@ export async function POST(request: Request) {
       adjustmentPrompt,
     } = JSON.parse(dataRaw);
 
-    const referenceImageFile = formData.get("referenceImage") as File | null;
+    const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
 
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GOOGLE_GEMINI_API_KEY não configurada" },
-        { status: 500 }
-      );
+    if (!geminiKey) {
+      return NextResponse.json({ error: "GOOGLE_GEMINI_API_KEY não configurada" }, { status: 500 });
     }
 
     const primaryColor = clientColors?.[0] || "#F97316";
@@ -66,10 +217,10 @@ export async function POST(request: Request) {
     // Montar bloco de preço
     let priceBlock = "";
     if (priceType === "de-por" && previousPrice) {
-      priceBlock = `Red strikethrough text: De R$${previousPrice}. Below: giant number ${price} in massive extra-bold black, cents as superscript. Below: ${unit} ${condition} in orange.`;
+      priceBlock = `De R$${previousPrice} (riscado, vermelho) → Por R$${price} ${unit} ${condition} (GIGANTE, bold, destaque máximo)`;
     } else {
       const label = priceType === "por-apenas" ? "POR APENAS" : "A PARTIR DE";
-      priceBlock = `Orange/red badge: ${label}. Below: giant price ${price} in massive extra-bold black, cents as superscript. Below: ${unit} ${condition} in orange.`;
+      priceBlock = `${label} R$${price} ${unit} ${condition} — tipografia GIGANTE, bold, destaque máximo como etiqueta de preço de varejo`;
     }
 
     // Validade
@@ -77,302 +228,172 @@ export async function POST(request: Request) {
     if (startDate && endDate) {
       const start = new Date(startDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "long" });
       const end = new Date(endDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "long" });
-      validityBlock = `Footer bar: Ofertas válidas de ${start} a ${end} | IMAGEM MERAMENTE ILUSTRATIVA`;
+      validityBlock = `Ofertas válidas de ${start} a ${end} | IMAGEM MERAMENTE ILUSTRATIVA`;
     }
 
-    // Formato
-    const isVertical = format === "1080x1350" || format === "1080x1920";
-
-    // Adicionar referência de estilo se fornecida
-    if (referenceImageFile) {
-      const refBuffer = await referenceImageFile.arrayBuffer();
-      const refB64 = Buffer.from(refBuffer).toString("base64");
-      // referenceImage será adicionada como primeira imagem
-      // com instrução explícita no prompt
-    }
-
-    // Variações de estilo — cada uma muda layout, composição e vibe completa
-    const styleInstructions: Record<number, string> = {
-      1: `STYLE: IMPACTO VAREJO (GPT-4o)
-Layout: produto GIGANTE centralizado (50%+ da área), preço em banner diagonal no canto superior esquerdo com efeito ribbon/faixa.
-Background: cor da marca sólida com textura sutil de concreto/tijolo. Elementos geométricos angulares nas bordas.
-Vibe: agressivo, direto, estilo encarte de loja — o preço grita. Sombra dura no produto.
-Selo da promoção: faixa lateral vertical na borda esquerda.
-CTA: barra inferior full-width em verde WhatsApp.`,
-
-      2: `STYLE: PREMIUM CLEAN (GPT-4o)
-Layout: composição assimétrica — produto à direita em pedestal/superfície realista, informações à esquerda com muito espaço branco.
-Background: gradiente suave de branco para cinza claro, com uma faixa fina na cor da marca no topo.
-Vibe: sofisticado, minimalista, inspirado em catálogo de arquitetura. Tipografia elegante com muito tracking.
-Selo da promoção: badge circular pequeno e refinado no canto superior.
-CTA: botão arredondado com sombra suave, não gritante.`,
-
-      3: `STYLE: ENERGIA TOTAL (Gemini)
-Layout: composição dinâmica diagonal — tudo em ângulo de 15°. Produto flutuando com reflexo embaixo. Preço em explosão starburst.
-Background: gradiente vibrante da cor da marca para preto, com partículas luminosas e linhas de velocidade.
-Vibe: Black Friday, mega promoção, urgência. Efeitos de brilho, lens flare, neon glow na cor da marca.
-Selo da promoção: 3D extrudado com brilho metálico e faíscas.
-CTA: botão com borda neon pulsante.`,
-    };
-
-    // Adicionar seed aleatório pra garantir variação entre gerações do mesmo estilo
-    const randomSeed = Math.floor(Math.random() * 10000);
-    const randomAccents = [
-      "Add subtle particle dust floating in the air.",
-      "Include a thin decorative line pattern in the background.",
-      "Add a subtle vignette effect on the edges.",
-      "Include small geometric accent shapes scattered around.",
-      "Add a subtle lens flare from the upper corner.",
-      "Include a thin brand-colored border frame.",
-    ];
-    const randomAccent = randomAccents[Math.floor(Math.random() * randomAccents.length)];
-
-    const variationPrompt = styleVariation
-      ? `${styleInstructions[styleVariation] || ""}\nRANDOM ACCENT: ${randomAccent} (seed: ${randomSeed})`
-      : `RANDOM ACCENT: ${randomAccent} (seed: ${randomSeed})`;
-
-    // Montar parts com imagens reais
-    const parts: Array<Record<string, unknown>> = [];
-
-    // Adicionar referência de estilo se fornecida
-    if (referenceImageFile) {
-      const refBuffer = await referenceImageFile.arrayBuffer();
-      const refB64 = Buffer.from(refBuffer).toString("base64");
-      parts.push({
-        inlineData: {
-          mimeType: referenceImageFile.type || "image/png",
-          data: refB64,
-        },
-      });
-    }
-
-    // Adicionar logo se disponível
-    if (logoFile) {
-      const logoBuffer = await logoFile.arrayBuffer();
-      const logoB64 = Buffer.from(logoBuffer).toString("base64");
-      parts.push({
-        inlineData: {
-          mimeType: logoFile.type || "image/png",
-          data: logoB64,
-        },
-      });
-    }
-
-    // Adicionar foto do produto se disponível
-    if (productImageFile) {
-      const prodBuffer = await productImageFile.arrayBuffer();
-      const prodB64 = Buffer.from(prodBuffer).toString("base64");
-      parts.push({
-        inlineData: {
-          mimeType: productImageFile.type || "image/png",
-          data: prodB64,
-        },
-      });
-    }
-
-    // CTA text
     const ctaText = cta || "Clique e fale conosco";
-
-    // Montar prompt
-    // Montar instruções de imagem considerando referência
     const hasRef = !!referenceImageFile;
-    const imageList: string[] = [];
-    let imgIdx = 1;
 
-    if (hasRef) {
-      imageList.push(`IMAGE ${imgIdx} is a STYLE REFERENCE — match its exact visual style, layout composition, color treatment, and design elements`);
-      imgIdx++;
-    }
-    if (logoFile) {
-      imageList.push(`IMAGE ${imgIdx} is the store LOGO — use it EXACTLY without modification`);
-      imgIdx++;
-    }
-    if (productImageFile) {
-      imageList.push(`IMAGE ${imgIdx} is the REAL PRODUCT PHOTO — display it large with realistic shadow`);
-    }
+    // Construir prompt
+    const prompt = buildPrompt({
+      clientName: clientName || "Loja",
+      primaryColor,
+      promotionName: promotionName || "OFERTA ESPECIAL",
+      productName,
+      productSpec,
+      priceBlock,
+      ctaText,
+      phone,
+      storeAddress,
+      validityBlock: validityBlock || undefined,
+      styleVariation,
+      hasLogo: !!logoFile,
+      hasProductImage: !!productImageFile,
+      hasRef,
+      adjustmentPrompt,
+    });
 
-    let imageInstructions = "";
-    if (imageList.length > 0) {
-      imageInstructions = `I provided ${imageList.length} image(s):\n${imageList.map((s) => `- ${s}`).join("\n")}\nCRITICAL: Use EXACTLY the images I provided. Do NOT recreate or reinterpret them.`;
-    }
-
-    // Montar instruções de tipografia
-    const fontTitle = clientFonts?.title || "Montserrat";
-    const fontPrice = clientFonts?.price || "Oswald";
-    const fontDesc = clientFonts?.description || "Open Sans";
-
-    const prompt = `${imageInstructions}
-
-Create a premium Brazilian retail promotional poster for a building materials store ("loja de material de construção").
-Format: ${isVertical ? "vertical 1080x1350" : "square 1080x1080"}.
-Brand primary color: ${primaryColor}.
-
-═══════════════════════════════════════
-MANDATORY TEXT (Brazilian Portuguese)
-═══════════════════════════════════════
-
-ALL text MUST be in Brazilian Portuguese with correct accents and spelling.
-Currency: use "R$" prefix. Use COMMA as decimal separator (34,90 NOT 34.90).
-NEVER use cent symbols (¢), euro (€), or dollar sign ($) next to numbers.
-
-CONTENT TO INCLUDE:
-• Promotional headline: "${promotionName}" — render as an eye-catching 3D-style seal/badge with metallic chrome letters, ${primaryColor} color accents, dramatic studio lighting. Photorealistic 3D quality.
-• Product name: "${productName}" — heavy bold uppercase letters, prominent and clear
-${productSpec ? `• Product specification: "${productSpec}" — medium gray text below product name` : ""}
-• ${priceBlock}
-• CTA button: bright green WhatsApp-style rounded button with bold white text: "${ctaText}"
-${phone ? `• Phone: "${phone}" — small legible text near CTA with WhatsApp icon` : ""}
-${storeAddress ? `• Address: "${storeAddress}" — small text in footer with location pin icon` : ""}
-• Footer: ${validityBlock ? `${primaryColor} colored bar with white text: ${validityBlock}` : `"IMAGEM MERAMENTE ILUSTRATIVA" in small text`}
-
-═══════════════════════════════════════
-IMAGES & LOGO
-═══════════════════════════════════════
-
-${logoFile ? "LOGO: Use my EXACT provided logo image without ANY modification. Display it clearly in the top area of the poster." : `LOGO: Display store name "${clientName}" in a professional badge/emblem in the top area.`}
-
-PRODUCT IMAGE: ${productImageFile ? "Use the EXACT product photo I provided. Display it LARGE and prominently (35-40% of poster area) with realistic drop shadow and slight perspective tilt. Do NOT recreate, redraw, or reinterpret the product — use the photo AS-IS." : `Generate a photorealistic ${productName} with professional product photography lighting and shadow.`}
-
-═══════════════════════════════════════
-VISUAL STYLE & COMPOSITION
-═══════════════════════════════════════
-
-${variationPrompt}
-
-BACKGROUND DESIGN:
-- Create a visually rich background that complements ${primaryColor}
-- Use creative composition: diagonal splits, gradients, geometric shapes, or contextual textures
-- Upper section in brand color, lower section lighter/white for text readability
-- Add floating decorative 3D elements (confetti, metallic ribbons, geometric shapes) for energy and movement
-- The background must feel premium and crafted, never flat or generic
-
-═══════════════════════════════════════
-PROFESSIONAL QUALITY REQUIREMENTS
-═══════════════════════════════════════
-
-This must look like it was designed by a professional graphic designer for a real advertising campaign:
-
-1. VISUAL HIERARCHY: promotion seal > product photo > price > product name > CTA > details
-2. TYPOGRAPHY: Use bold, heavy sans-serif fonts. Price must be the LARGEST text element. Product name in extra-bold uppercase. All text sharp, anti-aliased, and perfectly legible.
-3. SPACING & ALIGNMENT: Consistent margins, proper alignment grid. Nothing cramped or overlapping. Professional whitespace usage.
-4. CONTRAST: Every text element must have strong contrast against its background. Use text shadows, backing shapes, or color blocks behind text when needed.
-5. COLOR HARMONY: All colors must work together with the ${primaryColor} brand palette. No clashing or amateur color combinations.
-6. COMPOSITION: Balanced layout — visual weight distributed evenly. The poster should look complete, not like random elements placed on a canvas.
-7. POLISH: Subtle details like consistent shadow directions, proper edge treatment, no rough cutouts, smooth gradients.
-
-REFERENCE STYLE: Premium Brazilian retail advertising similar to Leroy Merlin, Telhanorte, C&C promotional materials. Bold, vibrant, commercial, trustworthy.
-${hasRef ? `
-═══════════════════════════════════════
-REFERENCE IMAGE (CRITICAL)
-═══════════════════════════════════════
-You MUST replicate the EXACT visual style from the reference image I provided:
-- Same layout grid and element positioning
-- Same background treatment (gradient direction, color zones, geometric shapes)
-- Same typographic hierarchy and text sizing ratios
-- Same decorative elements style (confetti, ribbons, shapes, shadows)
-- Same color application pattern
-- ONLY change: the product photo, product name, price text, and specification text
-- Everything else must be IDENTICAL to the reference` : ""}
-${adjustmentPrompt ? `\nUSER ADJUSTMENT (CRITICAL): ${adjustmentPrompt}\nApply ONLY the requested changes. Keep everything else identical.` : ""}`;
-
-    parts.push({ text: prompt });
-
-    // Decidir modelo: variações 1 e 2 → GPT-4o, variação 3 → Gemini
-    const useOpenAI = (styleVariation === 1 || styleVariation === 2) && process.env.OPENAI_API_KEY;
+    // Decidir modelo: variações 1 e 2 → gpt-image-1, variação 3 → Gemini
+    const useOpenAI = (styleVariation === 1 || styleVariation === 2) && openaiKey;
 
     let imageBuffer: Buffer | null = null;
 
     if (useOpenAI) {
-      // ─── GPT-4o Image Generation ─────────────────────────────────────
-      const openaiKey = process.env.OPENAI_API_KEY!;
+      // ─── OpenAI gpt-image-1 (Images API) ───────────────────────────
+      try {
+        // Preparar imagens para o prompt (gpt-image-1 aceita imagens via a API)
+        const images: Array<{ url: string }> = [];
 
-      // Montar mensagens com imagens
-      const content: Array<Record<string, unknown>> = [];
+        if (referenceImageFile) {
+          const refB64 = Buffer.from(await referenceImageFile.arrayBuffer()).toString("base64");
+          images.push({ url: `data:${referenceImageFile.type || "image/png"};base64,${refB64}` });
+        }
+        if (logoFile) {
+          const logoB64 = Buffer.from(await logoFile.arrayBuffer()).toString("base64");
+          images.push({ url: `data:${logoFile.type || "image/png"};base64,${logoB64}` });
+        }
+        if (productImageFile) {
+          const prodB64 = Buffer.from(await productImageFile.arrayBuffer()).toString("base64");
+          images.push({ url: `data:${productImageFile.type || "image/png"};base64,${prodB64}` });
+        }
 
-      if (referenceImageFile) {
-        const refBuffer = await referenceImageFile.arrayBuffer();
-        const refB64 = Buffer.from(refBuffer).toString("base64");
-        content.push({
-          type: "image_url",
-          image_url: { url: `data:${referenceImageFile.type || "image/png"};base64,${refB64}` },
-        });
-      }
-      if (logoFile) {
-        const logoBuffer = await logoFile.arrayBuffer();
-        const logoB64 = Buffer.from(logoBuffer).toString("base64");
-        content.push({
-          type: "image_url",
-          image_url: { url: `data:${logoFile.type || "image/png"};base64,${logoB64}` },
-        });
-      }
-      if (productImageFile) {
-        const prodBuffer = await productImageFile.arrayBuffer();
-        const prodB64 = Buffer.from(prodBuffer).toString("base64");
-        content.push({
-          type: "image_url",
-          image_url: { url: `data:${productImageFile.type || "image/png"};base64,${prodB64}` },
-        });
-      }
+        // Usar Images API com gpt-image-1
+        const openaiBody: Record<string, unknown> = {
+          model: "gpt-image-1",
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024",
+          quality: "high",
+        };
 
-      content.push({ type: "text", text: prompt });
+        // Se temos imagens, usar via chat completions com gpt-4o (gpt-image-1 não aceita input images)
+        let openaiRes: Response;
 
-      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openaiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a professional graphic designer specializing in Brazilian retail promotional materials. Generate high-quality promotional poster images.",
+        if (images.length > 0) {
+          // Chat completions com imagens de entrada
+          const content: Array<Record<string, unknown>> = [];
+          for (const img of images) {
+            content.push({ type: "image_url", image_url: { url: img.url } });
+          }
+          content.push({ type: "text", text: prompt });
+
+          openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiKey}`,
+              "Content-Type": "application/json",
             },
-            {
-              role: "user",
-              content,
+            body: JSON.stringify({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: "Você é um diretor de arte sênior especializado em campanhas promocionais de varejo de materiais de construção no Brasil. Gere imagens de alta qualidade profissional.",
+                },
+                { role: "user", content },
+              ],
+              modalities: ["text", "image"],
+            }),
+          });
+
+          if (openaiRes.ok) {
+            const data = await openaiRes.json();
+            const outputContent = data.choices?.[0]?.message?.content;
+            if (Array.isArray(outputContent)) {
+              for (const block of outputContent) {
+                if (block.type === "image_url" && block.image_url?.url) {
+                  const b64Match = block.image_url.url.match(/base64,(.+)/);
+                  if (b64Match) {
+                    imageBuffer = Buffer.from(b64Match[1], "base64");
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // Sem imagens de entrada — usar Images API direta com gpt-image-1
+          openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiKey}`,
+              "Content-Type": "application/json",
             },
-          ],
-          modalities: ["text", "image"],
-        }),
-      });
+            body: JSON.stringify(openaiBody),
+          });
 
-      if (!openaiRes.ok) {
-        const errText = await openaiRes.text();
-        console.error("OpenAI API error:", errText.substring(0, 500));
-        // Fallback pro Gemini se GPT falhar
-        console.log("Falling back to Gemini...");
-      } else {
-        const openaiData = await openaiRes.json();
-        const outputContent = openaiData.choices?.[0]?.message?.content;
-
-        if (Array.isArray(outputContent)) {
-          for (const block of outputContent) {
-            if (block.type === "image_url" && block.image_url?.url) {
-              const b64Match = block.image_url.url.match(/base64,(.+)/);
-              if (b64Match) {
-                imageBuffer = Buffer.from(b64Match[1], "base64");
-                break;
+          if (openaiRes.ok) {
+            const data = await openaiRes.json();
+            const b64 = data.data?.[0]?.b64_json;
+            if (b64) {
+              imageBuffer = Buffer.from(b64, "base64");
+            } else {
+              const imgUrl = data.data?.[0]?.url;
+              if (imgUrl) {
+                const imgRes = await fetch(imgUrl);
+                if (imgRes.ok) {
+                  imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+                }
               }
             }
           }
         }
+
+        if (!imageBuffer) {
+          console.error("OpenAI não gerou imagem, falling back to Gemini");
+        }
+      } catch (err) {
+        console.error("OpenAI error:", err instanceof Error ? err.message : err);
       }
     }
 
     // ─── Gemini (variação 3 ou fallback) ─────────────────────────────
     if (!imageBuffer) {
+      const parts: Array<Record<string, unknown>> = [];
+
+      if (referenceImageFile) {
+        const refB64 = Buffer.from(await referenceImageFile.arrayBuffer()).toString("base64");
+        parts.push({ inlineData: { mimeType: referenceImageFile.type || "image/png", data: refB64 } });
+      }
+      if (logoFile) {
+        const logoB64 = Buffer.from(await logoFile.arrayBuffer()).toString("base64");
+        parts.push({ inlineData: { mimeType: logoFile.type || "image/png", data: logoB64 } });
+      }
+      if (productImageFile) {
+        const prodB64 = Buffer.from(await productImageFile.arrayBuffer()).toString("base64");
+        parts.push({ inlineData: { mimeType: productImageFile.type || "image/png", data: prodB64 } });
+      }
+
+      parts.push({ text: prompt });
+
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts }],
-            generationConfig: {
-              responseModalities: ["IMAGE", "TEXT"],
-            },
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
           }),
         }
       );
@@ -380,10 +401,7 @@ ${adjustmentPrompt ? `\nUSER ADJUSTMENT (CRITICAL): ${adjustmentPrompt}\nApply O
       if (!res.ok) {
         const errText = await res.text();
         console.error("Gemini API error:", errText.substring(0, 500));
-        return NextResponse.json(
-          { error: `Erro na API: ${res.status}` },
-          { status: res.status }
-        );
+        return NextResponse.json({ error: `Erro na API: ${res.status}` }, { status: res.status });
       }
 
       const data = await res.json();
@@ -398,13 +416,10 @@ ${adjustmentPrompt ? `\nUSER ADJUSTMENT (CRITICAL): ${adjustmentPrompt}\nApply O
     }
 
     if (!imageBuffer) {
-      return NextResponse.json(
-        { error: "Nenhuma imagem gerada" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Nenhuma imagem gerada" }, { status: 500 });
     }
 
-    // Salvar no Supabase Storage
+    // ─── Salvar no Supabase ──────────────────────────────────────────
     const fileName = `creative-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.png`;
     const { error: uploadError } = await supabase.storage
       .from("creatives")
