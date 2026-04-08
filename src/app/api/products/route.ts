@@ -148,6 +148,7 @@ export async function POST(request: Request) {
         category: productData.category || null,
         subcategory: productData.subcategory || null,
         brand: productData.brand || null,
+        unit: productData.unit || null,
         image_url: imageUrl,
         image_treated_url: imageTreatedUrl,
       })
@@ -206,6 +207,7 @@ export async function PUT(request: Request) {
       category: productData.category || null,
       subcategory: productData.subcategory || null,
       brand: productData.brand || null,
+      unit: productData.unit || null,
     };
 
     if (imageFile) {

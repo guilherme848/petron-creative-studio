@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CATEGORIAS_MATCON, CATEGORIAS } from "@/lib/constants";
+import { CATEGORIAS_MATCON, CATEGORIAS, UNIDADES } from "@/lib/constants";
 
 interface ProdutoForm {
   nome: string;
@@ -41,6 +41,7 @@ interface ProdutoForm {
   categoria: string;
   subcategoria: string;
   marca: string;
+  unidade: string;
   imagemUrl: string | null;
   imagemFile: File | null;
 }
@@ -51,6 +52,7 @@ const initialForm: ProdutoForm = {
   categoria: "",
   subcategoria: "",
   marca: "",
+  unidade: "",
   imagemUrl: null,
   imagemFile: null,
 };
@@ -103,6 +105,7 @@ export default function NovoProdutoPage() {
         category: form.categoria || null,
         subcategory: form.subcategoria || null,
         brand: form.marca || null,
+        unit: form.unidade || null,
       };
 
       formData.append("data", JSON.stringify(productData));
@@ -241,17 +244,37 @@ export default function NovoProdutoPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="marca">Marca / Fabricante</Label>
-                <Input
-                  id="marca"
-                  placeholder="Ex: Portobello, Eliane, Suvinil"
-                  className="h-[42px]"
-                  value={form.marca}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, marca: e.target.value }))
-                  }
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="marca">Marca / Fabricante</Label>
+                  <Input
+                    id="marca"
+                    placeholder="Ex: Portobello, Eliane, Suvinil"
+                    className="h-[42px]"
+                    value={form.marca}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, marca: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unidade de medida</Label>
+                  <Select
+                    value={form.unidade}
+                    onValueChange={(val) =>
+                      setForm((prev) => ({ ...prev, unidade: val ?? "" }))
+                    }
+                  >
+                    <SelectTrigger className="h-[42px]">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNIDADES.map((u) => (
+                        <SelectItem key={u} value={u}>{u}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>

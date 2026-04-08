@@ -41,7 +41,14 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO } from "@/lib/constants";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO, CATEGORIAS_MATCON, CATEGORIAS } from "@/lib/constants";
 
 // -- Types for fetched data ---------------------------------------------------
 
@@ -78,6 +85,8 @@ interface ProdutoAPI {
   image_treated_url: string | null;
   category: string | null;
   subcategory: string | null;
+  brand: string | null;
+  unit: string | null;
 }
 
 // -- Types --------------------------------------------------------------------
@@ -236,6 +245,12 @@ export default function CriarPage() {
   const [usarProdutoCadastrado, setUsarProdutoCadastrado] = useState(false);
   const [salvarProdutoNoBanco, setSalvarProdutoNoBanco] = useState(false);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
+  const [showSalvarModal, setShowSalvarModal] = useState(false);
+  const [salvarCategoria, setSalvarCategoria] = useState("");
+  const [salvarSubcategoria, setSalvarSubcategoria] = useState("");
+  const [salvarUnidade, setSalvarUnidade] = useState("");
+  const [produtoSearch, setProdutoSearch] = useState("");
+  const [ctaCustom, setCtaCustom] = useState(false);
 
   // Step 4: 3 variações
   const [variations, setVariations] = useState<VariationResult[]>([]);
@@ -280,6 +295,25 @@ export default function CriarPage() {
 
   const update = (partial: Partial<CreativeState>) =>
     setState((prev) => ({ ...prev, ...partial }));
+
+  function formatPhone(value: string): string {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 2) return digits.length ? `(${digits}` : "";
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+
+  // Filtrar produtos cadastrados pela busca
+  const filteredProducts = produtosCliente.filter((p) => {
+    if (!produtoSearch) return true;
+    const q = produtoSearch.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.brand?.toLowerCase().includes(q) ||
+      p.category?.toLowerCase().includes(q) ||
+      p.subcategory?.toLowerCase().includes(q)
+    );
+  });
 
   const handleFileUpload = useCallback(
     (field: "seloUrl" | "produtoFotoUrl", fileField: "seloFile" | "produtoFotoFile") =>
@@ -657,8 +691,130 @@ export default function CriarPage() {
 
   // -- Render -----------------------------------------------------------------
 
+  // Função para salvar produto via modal
+  async function handleSalvarProduto() {
+    if (!state.produtoNome.trim()) return;
+
+    // Check duplicidade
+    const nomeNorm = state.produtoNome.trim().toLowerCase();
+    const duplicado = produtosCliente.find((p) => p.name.toLowerCase() === nomeNorm);
+    if (duplicado) {
+      toast.info(`Produto "${duplicado.name}" já existe no banco.`);
+      setShowSalvarModal(false);
+      return;
+    }
+
+    setSalvandoProduto(true);
+    try {
+      const fd = new FormData();
+      if (state.produtoFotoFile) {
+        fd.append("image", state.produtoFotoFile);
+      }
+      fd.append("data", JSON.stringify({
+        name: state.produtoNome.trim(),
+        description: state.produtoSpec || null,
+        category: salvarCategoria || null,
+        subcategory: salvarSubcategoria || null,
+        brand: null,
+        unit: salvarUnidade || null,
+      }));
+      const res = await fetch("/api/products", { method: "POST", body: fd });
+      if (res.ok) {
+        toast.success("Produto salvo no banco!");
+        setShowSalvarModal(false);
+        // Atualizar lista de produtos
+        const prodRes = await fetch("/api/products");
+        if (prodRes.ok) setProdutosCliente(await prodRes.json());
+      } else {
+        toast.error("Erro ao salvar produto no banco");
+      }
+    } catch {
+      toast.error("Erro ao salvar produto");
+    } finally {
+      setSalvandoProduto(false);
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Modal de salvar produto no banco */}
+      <Dialog open={showSalvarModal} onOpenChange={setShowSalvarModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salvar produto no banco</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Nome (readonly) */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Produto</Label>
+              <p className="text-sm font-semibold">{state.produtoNome}</p>
+            </div>
+
+            {/* Verificação de duplicidade */}
+            {state.produtoNome.trim() && (() => {
+              const dup = produtosCliente.find((p) => p.name.toLowerCase() === state.produtoNome.trim().toLowerCase());
+              if (dup) return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Produto &quot;{dup.name}&quot; já existe no banco.</p>
+                </div>
+              );
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Nome disponível, sem duplicidade.</p>
+                </div>
+              );
+            })()}
+
+            {/* Categoria */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Categoria</Label>
+                <Select value={salvarCategoria} onValueChange={(val) => { setSalvarCategoria(val ?? ""); setSalvarSubcategoria(""); }}>
+                  <SelectTrigger className="h-[38px]"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIAS.map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Subcategoria</Label>
+                <Select value={salvarSubcategoria} onValueChange={(val) => setSalvarSubcategoria(val ?? "")} disabled={!salvarCategoria}>
+                  <SelectTrigger className="h-[38px]"><SelectValue placeholder={salvarCategoria ? "Selecione" : "—"} /></SelectTrigger>
+                  <SelectContent>
+                    {salvarCategoria && CATEGORIAS_MATCON[salvarCategoria as keyof typeof CATEGORIAS_MATCON]?.map((sub) => (
+                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Unidade */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Unidade de medida</Label>
+              <Select value={salvarUnidade} onValueChange={(val) => setSalvarUnidade(val ?? "")}>
+                <SelectTrigger className="h-[38px]"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {UNIDADES.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSalvarModal(false)}>Cancelar</Button>
+            <Button
+              onClick={handleSalvarProduto}
+              disabled={salvandoProduto || !state.produtoNome.trim() || !!produtosCliente.find((p) => p.name.toLowerCase() === state.produtoNome.trim().toLowerCase())}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0"
+            >
+              {salvandoProduto ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Salvando...</> : "Salvar Produto"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Criar Criativo</h2>
@@ -1121,64 +1277,90 @@ export default function CriarPage() {
                       </div>
                     ) : produtosCliente.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-6">
-                        Nenhum produto cadastrado para este cliente.
+                        Nenhum produto cadastrado.
                       </p>
                     ) : (
-                      <div className="grid gap-2 max-h-[250px] overflow-y-auto">
-                        {produtosCliente.map((p) => {
-                          const isSelected = state.produtoNome === p.name;
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                const imageUrl = p.image_treated_url || p.image_url;
-                                update({
-                                  produtoNome: p.name,
-                                  produtoSpec: p.subcategory || "",
-                                  produtoFotoUrl: imageUrl,
-                                  produtoFotoFile: null,
-                                });
-                                // Fetch the image as a File to send to AI
-                                if (imageUrl) {
-                                  fetch(imageUrl)
-                                    .then((r) => r.blob())
-                                    .then((blob) => {
-                                      const file = new File([blob], "product.png", { type: "image/png" });
-                                      update({ produtoFotoFile: file });
-                                    })
-                                    .catch(() => {});
-                                }
-                              }}
-                              className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
-                                isSelected
-                                  ? "border-orange-500 bg-orange-500/5 shadow-sm"
-                                  : "border-border/50 hover:border-orange-500/30"
-                              }`}
-                            >
-                              {(p.image_treated_url || p.image_url) ? (
-                                <div className="h-12 w-12 rounded-lg border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-1 shrink-0">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={p.image_treated_url || p.image_url || ""} alt={p.name} className="max-h-full max-w-full object-contain" />
-                                </div>
-                              ) : (
-                                <div className="h-12 w-12 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
-                                  <Package className="h-5 w-5 text-muted-foreground/50" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{p.name}</p>
-                                {p.subcategory && <p className="text-xs text-muted-foreground">{p.subcategory}</p>}
-                              </div>
-                              {isSelected && (
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shrink-0">
-                                  <Check className="h-3 w-3" />
-                                </div>
-                              )}
+                      <>
+                        {/* Busca */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar por nome, marca, categoria..."
+                            value={produtoSearch}
+                            onChange={(e) => setProdutoSearch(e.target.value)}
+                            className="pl-9 h-9"
+                          />
+                          {produtoSearch && (
+                            <button type="button" onClick={() => setProdutoSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                              <X className="h-3.5 w-3.5" />
                             </button>
-                          );
-                        })}
-                      </div>
+                          )}
+                        </div>
+                        {filteredProducts.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">Nenhum produto encontrado.</p>
+                        ) : (
+                          <div className="grid gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                            {filteredProducts.map((p) => {
+                              const isSelected = state.produtoNome === p.name;
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const imageUrl = p.image_treated_url || p.image_url;
+                                    update({
+                                      produtoNome: p.name,
+                                      produtoSpec: p.subcategory || "",
+                                      produtoFotoUrl: imageUrl,
+                                      produtoFotoFile: null,
+                                      unidade: p.unit || state.unidade,
+                                    });
+                                    if (imageUrl) {
+                                      fetch(imageUrl)
+                                        .then((r) => r.blob())
+                                        .then((blob) => {
+                                          const file = new File([blob], "product.png", { type: "image/png" });
+                                          update({ produtoFotoFile: file });
+                                        })
+                                        .catch(() => {});
+                                    }
+                                  }}
+                                  className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                    isSelected
+                                      ? "border-orange-500 bg-orange-500/5 shadow-sm"
+                                      : "border-border/50 hover:border-orange-500/30"
+                                  }`}
+                                >
+                                  {(p.image_treated_url || p.image_url) ? (
+                                    <div className="h-12 w-12 rounded-lg border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden p-1 shrink-0">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={p.image_treated_url || p.image_url || ""} alt={p.name} className="max-h-full max-w-full object-contain" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-12 w-12 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
+                                      <Package className="h-5 w-5 text-muted-foreground/50" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{p.name}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                      {p.category && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-500">{p.category}</span>}
+                                      {p.subcategory && <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500">{p.subcategory}</span>}
+                                      {p.brand && <span className="text-[10px] text-muted-foreground">{p.brand}</span>}
+                                      {p.unit && <span className="text-[10px] text-muted-foreground">· {p.unit}</span>}
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white shrink-0">
+                                      <Check className="h-3 w-3" />
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -1254,17 +1436,21 @@ export default function CriarPage() {
                 </div>
 
                 {/* Salvar produto no banco */}
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={salvarProdutoNoBanco}
-                    onChange={(e) => setSalvarProdutoNoBanco(e.target.checked)}
-                    className="rounded border-border accent-orange-500 h-4 w-4"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    Salvar este produto no banco para reutilizar depois
-                  </span>
-                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-border/50 hover:border-orange-500/30 hover:bg-orange-500/5 text-xs"
+                  onClick={() => {
+                    setSalvarCategoria("");
+                    setSalvarSubcategoria("");
+                    setSalvarUnidade(state.unidade || "");
+                    setShowSalvarModal(true);
+                  }}
+                  disabled={!state.produtoNome.trim()}
+                >
+                  <Package className="h-3.5 w-3.5 mr-1.5" />
+                  Salvar no banco de produtos
+                </Button>
                   </>
                 )}
 
@@ -1357,20 +1543,52 @@ export default function CriarPage() {
                 {/* CTA */}
                 <div className="space-y-2">
                   <Label>Texto do botão (CTA)</Label>
-                  <Select
-                    value={state.cta}
-                    onValueChange={(val) => update({ cta: val ?? "" })}
-                  >
-                    <SelectTrigger className="h-[42px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Clique e fale conosco">Clique e fale conosco</SelectItem>
-                      <SelectItem value="Clique e faça seu orçamento">Clique e faça seu orçamento</SelectItem>
-                      <SelectItem value="Fale conosco pelo WhatsApp">Fale conosco pelo WhatsApp</SelectItem>
-                      <SelectItem value="Peça já seu orçamento">Peça já seu orçamento</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {ctaCustom ? (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Digite seu CTA personalizado..."
+                        className="h-[42px] flex-1"
+                        value={state.cta}
+                        onChange={(e) => update({ cta: e.target.value })}
+                      />
+                      <Button variant="outline" size="sm" className="h-[42px] text-xs" onClick={() => setCtaCustom(false)}>
+                        Sugestões
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid gap-1.5 grid-cols-2">
+                        {[
+                          "Clique e fale conosco",
+                          "Clique e faça seu orçamento",
+                          "Fale conosco pelo WhatsApp",
+                          "Peça já seu orçamento",
+                          "Compre agora",
+                          "Aproveite essa oferta",
+                        ].map((cta) => (
+                          <button
+                            key={cta}
+                            type="button"
+                            onClick={() => update({ cta })}
+                            className={`px-3 py-2 rounded-lg border text-[11px] font-medium text-left transition-all ${
+                              state.cta === cta
+                                ? "border-orange-500/50 bg-orange-500/5 text-orange-500"
+                                : "border-border/40 text-muted-foreground hover:border-orange-500/30 hover:text-foreground"
+                            }`}
+                          >
+                            {cta}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setCtaCustom(true); update({ cta: "" }); }}
+                        className="text-[11px] text-orange-500 hover:text-orange-400 font-medium"
+                      >
+                        + Personalizar CTA
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
@@ -1392,7 +1610,7 @@ export default function CriarPage() {
                       {cliente?.phone && (
                         <button
                           type="button"
-                          onClick={() => update({ phoneOverride: cliente.phone || "" })}
+                          onClick={() => update({ phoneOverride: formatPhone(cliente.phone || "") })}
                           className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-all ${
                             state.phoneOverride === cliente.phone
                               ? "border-orange-500/50 bg-orange-500/5"
@@ -1404,9 +1622,9 @@ export default function CriarPage() {
                         </button>
                       )}
                       <Input
-                        placeholder="Ou digite outro número..."
+                        placeholder="(XX) XXXXX-XXXX"
                         value={state.phoneOverride}
-                        onChange={(e) => update({ phoneOverride: e.target.value })}
+                        onChange={(e) => update({ phoneOverride: formatPhone(e.target.value) })}
                         className="h-9 text-xs"
                       />
                       <p className="text-[10px] text-muted-foreground">Aparece próximo ao botão de WhatsApp</p>
@@ -2035,58 +2253,11 @@ export default function CriarPage() {
             {step < 6 ? (
               <Button
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                onClick={async () => {
-                  // Ao sair do step 3 com "Criar do zero" e checkbox ativo, salva o produto
-                  if (step === 3 && !usarProdutoCadastrado && salvarProdutoNoBanco && state.produtoNome.trim()) {
-                    // Verificar duplicidade por nome
-                    const nomeNorm = state.produtoNome.trim().toLowerCase();
-                    const duplicado = produtosCliente.find(
-                      (p) => p.name.toLowerCase() === nomeNorm
-                    );
-                    if (duplicado) {
-                      toast.info(`Produto "${duplicado.name}" já existe no banco. Usando o cadastrado.`);
-                    } else {
-                      setSalvandoProduto(true);
-                      try {
-                        const fd = new FormData();
-                        if (state.produtoFotoFile) {
-                          fd.append("image", state.produtoFotoFile);
-                        }
-                        fd.append("data", JSON.stringify({
-                          name: state.produtoNome.trim(),
-                          description: state.produtoSpec || null,
-                          category: null,
-                          subcategory: null,
-                          brand: null,
-                        }));
-                        const res = await fetch("/api/products", { method: "POST", body: fd });
-                        if (res.ok) {
-                          toast.success("Produto salvo no banco!");
-                        } else {
-                          toast.error("Erro ao salvar produto no banco");
-                        }
-                      } catch {
-                        toast.error("Erro ao salvar produto");
-                      } finally {
-                        setSalvandoProduto(false);
-                      }
-                    }
-                  }
-                  setStep((s) => Math.min(6, s + 1));
-                }}
-                disabled={!canAdvance() || salvandoProduto}
+                onClick={() => setStep((s) => Math.min(6, s + 1))}
+                disabled={!canAdvance()}
               >
-                {salvandoProduto ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    {step === 5 ? "Exportar" : "Próximo"}
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </>
-                )}
+                {step === 5 ? "Exportar" : "Próximo"}
+                <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
               <div />
