@@ -93,21 +93,21 @@ export async function POST(request: Request) {
 
     // Variações de estilo — cada uma muda layout, composição e vibe completa
     const styleInstructions: Record<number, string> = {
-      1: `STYLE: IMPACTO VAREJO
+      1: `STYLE: IMPACTO VAREJO (GPT-4o)
 Layout: produto GIGANTE centralizado (50%+ da área), preço em banner diagonal no canto superior esquerdo com efeito ribbon/faixa.
 Background: cor da marca sólida com textura sutil de concreto/tijolo. Elementos geométricos angulares nas bordas.
 Vibe: agressivo, direto, estilo encarte de loja — o preço grita. Sombra dura no produto.
 Selo da promoção: faixa lateral vertical na borda esquerda.
 CTA: barra inferior full-width em verde WhatsApp.`,
 
-      2: `STYLE: PREMIUM CLEAN
+      2: `STYLE: PREMIUM CLEAN (GPT-4o)
 Layout: composição assimétrica — produto à direita em pedestal/superfície realista, informações à esquerda com muito espaço branco.
 Background: gradiente suave de branco para cinza claro, com uma faixa fina na cor da marca no topo.
 Vibe: sofisticado, minimalista, inspirado em catálogo de arquitetura. Tipografia elegante com muito tracking.
 Selo da promoção: badge circular pequeno e refinado no canto superior.
 CTA: botão arredondado com sombra suave, não gritante.`,
 
-      3: `STYLE: ENERGIA TOTAL
+      3: `STYLE: ENERGIA TOTAL (Gemini)
 Layout: composição dinâmica diagonal — tudo em ângulo de 15°. Produto flutuando com reflexo embaixo. Preço em explosão starburst.
 Background: gradiente vibrante da cor da marca para preto, com partículas luminosas e linhas de velocidade.
 Vibe: Black Friday, mega promoção, urgência. Efeitos de brilho, lens flare, neon glow na cor da marca.
@@ -277,37 +277,123 @@ ${adjustmentPrompt ? `\nUSER ADJUSTMENT (CRITICAL): ${adjustmentPrompt}\nApply O
 
     parts.push({ text: prompt });
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ["IMAGE", "TEXT"],
-          },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini API error:", errText.substring(0, 500));
-      return NextResponse.json(
-        { error: `Erro na API: ${res.status}` },
-        { status: res.status }
-      );
-    }
-
-    const data = await res.json();
-    const responseParts = data.candidates?.[0]?.content?.parts || [];
+    // Decidir modelo: variações 1 e 2 → GPT-4o, variação 3 → Gemini
+    const useOpenAI = (styleVariation === 1 || styleVariation === 2) && process.env.OPENAI_API_KEY;
 
     let imageBuffer: Buffer | null = null;
-    for (const part of responseParts) {
-      if (part.inlineData) {
-        imageBuffer = Buffer.from(part.inlineData.data, "base64");
-        break;
+
+    if (useOpenAI) {
+      // ─── GPT-4o Image Generation ─────────────────────────────────────
+      const openaiKey = process.env.OPENAI_API_KEY!;
+
+      // Montar mensagens com imagens
+      const content: Array<Record<string, unknown>> = [];
+
+      if (referenceImageFile) {
+        const refBuffer = await referenceImageFile.arrayBuffer();
+        const refB64 = Buffer.from(refBuffer).toString("base64");
+        content.push({
+          type: "image_url",
+          image_url: { url: `data:${referenceImageFile.type || "image/png"};base64,${refB64}` },
+        });
+      }
+      if (logoFile) {
+        const logoBuffer = await logoFile.arrayBuffer();
+        const logoB64 = Buffer.from(logoBuffer).toString("base64");
+        content.push({
+          type: "image_url",
+          image_url: { url: `data:${logoFile.type || "image/png"};base64,${logoB64}` },
+        });
+      }
+      if (productImageFile) {
+        const prodBuffer = await productImageFile.arrayBuffer();
+        const prodB64 = Buffer.from(prodBuffer).toString("base64");
+        content.push({
+          type: "image_url",
+          image_url: { url: `data:${productImageFile.type || "image/png"};base64,${prodB64}` },
+        });
+      }
+
+      content.push({ type: "text", text: prompt });
+
+      const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openaiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional graphic designer specializing in Brazilian retail promotional materials. Generate high-quality promotional poster images.",
+            },
+            {
+              role: "user",
+              content,
+            },
+          ],
+          modalities: ["text", "image"],
+        }),
+      });
+
+      if (!openaiRes.ok) {
+        const errText = await openaiRes.text();
+        console.error("OpenAI API error:", errText.substring(0, 500));
+        // Fallback pro Gemini se GPT falhar
+        console.log("Falling back to Gemini...");
+      } else {
+        const openaiData = await openaiRes.json();
+        const outputContent = openaiData.choices?.[0]?.message?.content;
+
+        if (Array.isArray(outputContent)) {
+          for (const block of outputContent) {
+            if (block.type === "image_url" && block.image_url?.url) {
+              const b64Match = block.image_url.url.match(/base64,(.+)/);
+              if (b64Match) {
+                imageBuffer = Buffer.from(b64Match[1], "base64");
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ─── Gemini (variação 3 ou fallback) ─────────────────────────────
+    if (!imageBuffer) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Gemini API error:", errText.substring(0, 500));
+        return NextResponse.json(
+          { error: `Erro na API: ${res.status}` },
+          { status: res.status }
+        );
+      }
+
+      const data = await res.json();
+      const responseParts = data.candidates?.[0]?.content?.parts || [];
+
+      for (const part of responseParts) {
+        if (part.inlineData) {
+          imageBuffer = Buffer.from(part.inlineData.data, "base64");
+          break;
+        }
       }
     }
 
