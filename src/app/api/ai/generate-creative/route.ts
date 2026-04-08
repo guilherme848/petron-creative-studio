@@ -203,28 +203,77 @@ CTA: botão com borda neon pulsante.`,
 
     const prompt = `${imageInstructions}
 
-Generate a high-quality promotional poster for a Brazilian building materials store ("material de construção").
-Format: ${isVertical ? "VERTICAL 1080x1350" : "SQUARE 1080x1080"}. Brand color: ${primaryColor}.
+Create a premium Brazilian retail promotional poster for a building materials store ("loja de material de construção").
+Format: ${isVertical ? "vertical 1080x1350" : "square 1080x1080"}.
+Brand primary color: ${primaryColor}.
 
-EXACT TEXT TO RENDER (Brazilian Portuguese, use COMMA for decimals):
-• Promotion: "${promotionName}"
-• Product: "${productName}"${productSpec ? ` — ${productSpec}` : ""}
+═══════════════════════════════════════
+MANDATORY TEXT (Brazilian Portuguese)
+═══════════════════════════════════════
+
+ALL text MUST be in Brazilian Portuguese with correct accents and spelling.
+Currency: use "R$" prefix. Use COMMA as decimal separator (34,90 NOT 34.90).
+NEVER use cent symbols (¢), euro (€), or dollar sign ($) next to numbers.
+
+CONTENT TO INCLUDE:
+• Promotional headline: "${promotionName}" — render as an eye-catching 3D-style seal/badge with metallic chrome letters, ${primaryColor} color accents, dramatic studio lighting. Photorealistic 3D quality.
+• Product name: "${productName}" — heavy bold uppercase letters, prominent and clear
+${productSpec ? `• Product specification: "${productSpec}" — medium gray text below product name` : ""}
 • ${priceBlock}
-• CTA button (green, WhatsApp style): "${ctaText}"
-${phone ? `• Phone: "${phone}" (small, near CTA, with WhatsApp icon)` : ""}
-${storeAddress ? `• Address: "${storeAddress}" (small, footer, with pin icon)` : ""}
-${validityBlock ? `• ${validityBlock}` : "• Footer: IMAGEM MERAMENTE ILUSTRATIVA"}
+• CTA button: bright green WhatsApp-style rounded button with bold white text: "${ctaText}"
+${phone ? `• Phone: "${phone}" — small legible text near CTA with WhatsApp icon` : ""}
+${storeAddress ? `• Address: "${storeAddress}" — small text in footer with location pin icon` : ""}
+• Footer: ${validityBlock ? `${primaryColor} colored bar with white text: ${validityBlock}` : `"IMAGEM MERAMENTE ILUSTRATIVA" in small text`}
 
-IMAGES:
-${logoFile ? "• Use my PROVIDED LOGO exactly as-is, no modifications" : `• Show store name "${clientName}" as a logo badge`}
-${productImageFile ? "• Use my PROVIDED PRODUCT PHOTO exactly — display it LARGE and prominent with realistic shadow" : `• Show a realistic ${productName}`}
+═══════════════════════════════════════
+IMAGES & LOGO
+═══════════════════════════════════════
+
+${logoFile ? "LOGO: Use my EXACT provided logo image without ANY modification. Display it clearly in the top area of the poster." : `LOGO: Display store name "${clientName}" in a professional badge/emblem in the top area.`}
+
+PRODUCT IMAGE: ${productImageFile ? "Use the EXACT product photo I provided. Display it LARGE and prominently (35-40% of poster area) with realistic drop shadow and slight perspective tilt. Do NOT recreate, redraw, or reinterpret the product — use the photo AS-IS." : `Generate a photorealistic ${productName} with professional product photography lighting and shadow.`}
+
+═══════════════════════════════════════
+VISUAL STYLE & COMPOSITION
+═══════════════════════════════════════
 
 ${variationPrompt}
-${hasRef ? `
-REFERENCE IMAGE (CRITICAL): Match the EXACT layout, composition, and visual style of the reference image I provided. Only swap the product, name, and price. Keep everything else identical.` : ""}
-${adjustmentPrompt ? `\nADJUSTMENT: ${adjustmentPrompt}` : ""}
 
-QUALITY: Professional retail advertising quality. Bold typography, clear hierarchy (price is king), balanced composition. Every text must be 100% legible and correctly spelled.`;
+BACKGROUND DESIGN:
+- Create a visually rich background that complements ${primaryColor}
+- Use creative composition: diagonal splits, gradients, geometric shapes, or contextual textures
+- Upper section in brand color, lower section lighter/white for text readability
+- Add floating decorative 3D elements (confetti, metallic ribbons, geometric shapes) for energy and movement
+- The background must feel premium and crafted, never flat or generic
+
+═══════════════════════════════════════
+PROFESSIONAL QUALITY REQUIREMENTS
+═══════════════════════════════════════
+
+This must look like it was designed by a professional graphic designer for a real advertising campaign:
+
+1. VISUAL HIERARCHY: promotion seal > product photo > price > product name > CTA > details
+2. TYPOGRAPHY: Use bold, heavy sans-serif fonts. Price must be the LARGEST text element. Product name in extra-bold uppercase. All text sharp, anti-aliased, and perfectly legible.
+3. SPACING & ALIGNMENT: Consistent margins, proper alignment grid. Nothing cramped or overlapping. Professional whitespace usage.
+4. CONTRAST: Every text element must have strong contrast against its background. Use text shadows, backing shapes, or color blocks behind text when needed.
+5. COLOR HARMONY: All colors must work together with the ${primaryColor} brand palette. No clashing or amateur color combinations.
+6. COMPOSITION: Balanced layout — visual weight distributed evenly. The poster should look complete, not like random elements placed on a canvas.
+7. POLISH: Subtle details like consistent shadow directions, proper edge treatment, no rough cutouts, smooth gradients.
+
+REFERENCE STYLE: Premium Brazilian retail advertising similar to Leroy Merlin, Telhanorte, C&C promotional materials. Bold, vibrant, commercial, trustworthy.
+${hasRef ? `
+═══════════════════════════════════════
+REFERENCE IMAGE (CRITICAL)
+═══════════════════════════════════════
+You MUST replicate the EXACT visual style from the reference image I provided:
+- Same layout grid and element positioning
+- Same background treatment (gradient direction, color zones, geometric shapes)
+- Same typographic hierarchy and text sizing ratios
+- Same decorative elements style (confetti, ribbons, shapes, shadows)
+- Same color application pattern
+- ONLY change: the product photo, product name, price text, and specification text
+- Everything else must be IDENTICAL to the reference` : ""}
+${adjustmentPrompt ? `\nUSER ADJUSTMENT (CRITICAL): ${adjustmentPrompt}\nApply ONLY the requested changes. Keep everything else identical.` : ""}`;
 
     parts.push({ text: prompt });
 
