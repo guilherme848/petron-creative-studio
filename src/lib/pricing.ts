@@ -4,23 +4,36 @@
  * Estimativa de custo em USD das chamadas de API que o Creative Studio faz.
  *
  * ═══════════════════════════════════════════════════════════════
- * Preços oficiais OpenAI (referência abril 2026)
+ * Preços oficiais OpenAI gpt-image-1.5 (março/2026)
  * ═══════════════════════════════════════════════════════════════
  *
- * gpt-image-1 / gpt-image-1.5  (cobrado por tokens de output de imagem)
- *   - Text tokens:    $5.00 / 1M input,  $40.00 / 1M output
- *   - Image tokens:   $40.00 / 1M output
+ * Por imagem 1024x1024 (valores oficiais OpenAI):
+ *   - Low quality:    $0.009 por imagem
+ *   - Medium quality: $0.034 por imagem  ← default da API (quality "auto")
+ *   - High quality:   $0.133 por imagem
  *
- *   Tokens por imagem 1024x1024 (quality: "auto" = medium):
- *     ~1056 image output tokens → 1056 × $40/1M = $0.0422 por imagem
+ * Por tokens (cobrança alternativa):
+ *   - Text input:        $5.00  / 1M tokens
+ *   - Text cached input: $1.25  / 1M tokens
+ *   - Text output:       $10.00 / 1M tokens
+ *   - Image input:       $8.00  / 1M tokens (usado em /v1/images/edits)
+ *   - Image cached:      $2.00  / 1M tokens
+ *   - Image output:      $32.00 / 1M tokens
  *
- *   Endpoint /v1/images/edits (multipart com input images):
- *     Mesmo custo de output + custo dos input image tokens
- *     Cada imagem de input pesa ~260 tokens adicionais
- *     2 inputs (produto + logo) = ~520 tokens * $10/1M = $0.0052
- *     Total: ~$0.0474 por edit com 2 imagens de input
+ * Endpoint /v1/images/edits (multipart com input images):
+ *   O route.ts envia product.png + logo.png + reference.png (até 3 inputs).
+ *   Cada imagem de input pesa ~260 tokens a $8/1M = $0.0021 por input.
+ *   Edit típico = medium ($0.034) + 2 inputs × $0.0021 = ~$0.038 por geração.
  *
- * gpt-4o-mini  (usado no refine-adjustment)
+ * Observação: o route.ts atual não passa `quality` pro gpt-image-1.5,
+ * então a OpenAI usa "auto" que equivale a medium na maioria dos casos.
+ *
+ * Batch API: halves os token rates (não implementado aqui, mas vale lembrar
+ * que operações assíncronas em massa podem cair ~50% no custo).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * gpt-4o-mini (usado no refine-adjustment)
+ * ═══════════════════════════════════════════════════════════════
  *   - Input:  $0.150 / 1M tokens
  *   - Output: $0.600 / 1M tokens
  *
@@ -28,14 +41,18 @@
  * Override via env vars (ajuste sem redeploy)
  * ═══════════════════════════════════════════════════════════════
  *
- *   OPENAI_IMAGE_COST_USD        (default: 0.042)
- *   OPENAI_IMAGE_EDIT_COST_USD   (default: 0.048)
+ *   OPENAI_IMAGE_COST_USD        (default: 0.034 — medium 1024x1024)
+ *   OPENAI_IMAGE_EDIT_COST_USD   (default: 0.038 — medium + ~2 inputs)
+ *   OPENAI_IMAGE_LOW_USD         (default: 0.009)
+ *   OPENAI_IMAGE_HIGH_USD        (default: 0.133)
  *   OPENAI_4O_MINI_INPUT_PER_1M  (default: 0.15)
  *   OPENAI_4O_MINI_OUTPUT_PER_1M (default: 0.60)
- *   BRL_PER_USD                  (default: 5.20)
+ *   BRL_PER_USD                  (default: 5.40)
  *
- * Quando a OpenAI mudar os preços, você só atualiza a env var no Vercel
- * e reinicia — nenhum deploy de código necessário.
+ * Fontes:
+ *   - https://openai.com/api/pricing/
+ *   - https://platform.openai.com/docs/pricing/
+ *   - https://www.aifreeapi.com/en/posts/gpt-image-1-5-pricing
  */
 
 const num = (name: string, fallback: number): number => {
@@ -48,33 +65,68 @@ const num = (name: string, fallback: number): number => {
 export const PRICING = {
   /**
    * Preço de 1 imagem gerada via /v1/images/generations
-   * gpt-image-1.5 · 1024x1024 · quality "auto" (medium)
-   * = 1056 image output tokens × $40/1M = $0.0422
+   * gpt-image-1.5 · 1024x1024 · quality "auto" (= medium)
+   * Valor oficial OpenAI: $0.034 por imagem
    */
-  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.042),
+  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.034),
   /**
-   * Preço de 1 imagem via /v1/images/edits com 1-3 input images
-   * Base: $0.0422 (output) + ~$0.006 (input image tokens) = ~$0.048
+   * Preço de 1 imagem via /v1/images/edits com inputs reais
+   * Base medium ($0.034) + ~2 input images ($0.004) ≈ $0.038
    */
-  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.048),
+  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.038),
+  /** gpt-image-1.5 · 1024x1024 · low quality */
+  imageLowUsd: num("OPENAI_IMAGE_LOW_USD", 0.009),
+  /** gpt-image-1.5 · 1024x1024 · high quality */
+  imageHighUsd: num("OPENAI_IMAGE_HIGH_USD", 0.133),
   /** gpt-4o-mini — USD / 1M input tokens */
   mini4oInputPerMillion: num("OPENAI_4O_MINI_INPUT_PER_1M", 0.15),
   /** gpt-4o-mini — USD / 1M output tokens */
   mini4oOutputPerMillion: num("OPENAI_4O_MINI_OUTPUT_PER_1M", 0.6),
   /**
    * Cotação USD→BRL pra exibir no dashboard em reais.
-   * Abril/2026: ~R$ 5.20-5.80. Default conservador 5.40.
+   * Abril/2026: ~R$ 5.20-5.80. Default 5.40.
    * Ajustar via env var BRL_PER_USD quando a cotação mudar significativamente.
    */
   brlPerUsd: num("BRL_PER_USD", 5.4),
 } as const;
 
+export type ImageQuality = "low" | "medium" | "high";
+
 /**
  * Estima o custo em USD de 1 geração de imagem pelo gpt-image-1.5.
- * Se hasInputImages=true, usa o pricing de /edits (mais caro) — senão /generations.
+ *
+ * @param hasInputImages — true quando a requisição usa /v1/images/edits
+ *   com input images (produto, logo, referência). Nesse caso soma o custo
+ *   dos input image tokens ao custo base.
+ * @param quality — "low" | "medium" | "high" | undefined (default medium,
+ *   que é o que a API entrega quando quality="auto" não é especificado).
  */
-export function estimateImageCost(hasInputImages: boolean): number {
-  return hasInputImages ? PRICING.imageEditUsd : PRICING.imageGenerationUsd;
+export function estimateImageCost(
+  hasInputImages: boolean,
+  quality?: ImageQuality
+): number {
+  // Custo base da geração por quality tier
+  let base: number;
+  switch (quality) {
+    case "low":
+      base = PRICING.imageLowUsd;
+      break;
+    case "high":
+      base = PRICING.imageHighUsd;
+      break;
+    case "medium":
+    default:
+      base = PRICING.imageGenerationUsd;
+      break;
+  }
+
+  // Se /edits, adiciona delta dos input image tokens.
+  // Calculado como: edit_default - generation_default (o delta médio)
+  if (hasInputImages) {
+    const delta = PRICING.imageEditUsd - PRICING.imageGenerationUsd;
+    return base + Math.max(0, delta);
+  }
+  return base;
 }
 
 /**
