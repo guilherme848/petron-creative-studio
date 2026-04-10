@@ -270,7 +270,7 @@ export default function CriarPage() {
   const [loteProgresso, setLoteProgresso] = useState(0);
   const [loteTotalItens, setLoteTotalItens] = useState(0);
 
-  // Cadastro ad-hoc de produto no step 5 (sem precisar persistir no banco)
+  // Cadastro ad-hoc de produto no step 5 (com opção de persistir no banco)
   const [showAdHocForm, setShowAdHocForm] = useState(false);
   const [adHocName, setAdHocName] = useState("");
   const [adHocSpec, setAdHocSpec] = useState("");
@@ -281,6 +281,11 @@ export default function CriarPage() {
   const [adHocCondition, setAdHocCondition] = useState("À vista");
   const [adHocImageFile, setAdHocImageFile] = useState<File | null>(null);
   const [adHocImageUrl, setAdHocImageUrl] = useState<string | null>(null);
+  const [adHocCategory, setAdHocCategory] = useState("");
+  const [adHocSubcategory, setAdHocSubcategory] = useState("");
+  const [adHocSaveToDb, setAdHocSaveToDb] = useState(false);
+  const [adHocSaving, setAdHocSaving] = useState(false);
+  const [adHocConfirmStep, setAdHocConfirmStep] = useState(false); // mostra review antes de adicionar
 
   // Verificação de texto e ajustes
   const [verifications, setVerifications] = useState<Map<string, { nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] }>>(new Map());
@@ -595,17 +600,89 @@ export default function CriarPage() {
     toast.info("Estilos gerados foram limpos");
   };
 
-  // Adicionar produto ad-hoc ao batch sem persistir no banco
-  const handleAddAdHocProduct = () => {
-    if (!adHocName.trim() || !adHocPrice.trim()) {
-      toast.error("Nome e preço são obrigatórios");
+  // Validação do form ad-hoc (foto agora é obrigatória)
+  const isAdHocFormValid = () =>
+    !!adHocName.trim() &&
+    !!adHocPrice.trim() &&
+    !!adHocImageFile &&
+    !!adHocCategory &&
+    !!adHocSubcategory;
+
+  // Avança do form para a tela de confirmação (review antes de adicionar)
+  const handleAdHocReview = () => {
+    if (!adHocName.trim()) {
+      toast.error("Nome do produto é obrigatório");
       return;
     }
+    if (!adHocPrice.trim()) {
+      toast.error("Preço é obrigatório");
+      return;
+    }
+    if (!adHocImageFile) {
+      toast.error("Foto do produto é obrigatória");
+      return;
+    }
+    if (!adHocCategory) {
+      toast.error("Categoria é obrigatória");
+      return;
+    }
+    if (!adHocSubcategory) {
+      toast.error("Subcategoria é obrigatória");
+      return;
+    }
+    if (adHocPriceType === "de-por" && !adHocPreviousPrice.trim()) {
+      toast.error("Preço anterior é obrigatório no tipo De/Por");
+      return;
+    }
+    setAdHocConfirmStep(true);
+  };
+
+  // Confirma e adiciona ao batch (e opcionalmente salva no banco)
+  const handleConfirmAdHocProduct = async () => {
+    setAdHocSaving(true);
+
+    let persistedImageUrl: string | null = adHocImageUrl;
+    let persistedId: string | null = null;
+
+    // Se marcou "salvar no banco", persiste via /api/products antes de adicionar
+    if (adHocSaveToDb && adHocImageFile) {
+      try {
+        const fd = new FormData();
+        fd.append("image", adHocImageFile);
+        fd.append("data", JSON.stringify({
+          name: adHocName.trim(),
+          description: adHocSpec.trim() || null,
+          category: adHocCategory,
+          subcategory: adHocSubcategory,
+          brand: null,
+          unit: adHocUnit,
+          client_id: state.clienteId || null,
+        }));
+
+        const res = await fetch("/api/products", { method: "POST", body: fd });
+        if (res.ok) {
+          const data = await res.json();
+          persistedId = data.id || null;
+          persistedImageUrl = data.image_treated_url || data.image_url || adHocImageUrl;
+          toast.success(`"${adHocName.trim()}" salvo no banco e adicionado ao lote`);
+          // Recarrega a lista de produtos cadastrados
+          try {
+            const prodRes = await fetch("/api/products");
+            if (prodRes.ok) setProdutosCliente(await prodRes.json());
+          } catch { /* ignora */ }
+        } else {
+          toast.warning("Não foi possível salvar no banco, mas adicionado ao lote");
+        }
+      } catch {
+        toast.warning("Erro ao salvar no banco, mas adicionado ao lote");
+      }
+    }
+
     const newProduct: BatchProduct = {
-      id: `adhoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: persistedId || `adhoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: adHocName.trim(),
       spec: adHocSpec.trim(),
-      imageUrl: adHocImageUrl,
+      imageUrl: persistedImageUrl,
       price: adHocPrice.trim(),
       previousPrice: adHocPreviousPrice.trim(),
       priceType: adHocPriceType,
@@ -613,7 +690,8 @@ export default function CriarPage() {
       condition: adHocCondition,
     };
     setBatchProducts((prev) => [...prev, newProduct]);
-    // Reset do form
+
+    // Reset completo do form
     setAdHocName("");
     setAdHocSpec("");
     setAdHocPrice("");
@@ -623,9 +701,20 @@ export default function CriarPage() {
     setAdHocCondition("À vista");
     setAdHocImageFile(null);
     setAdHocImageUrl(null);
+    setAdHocCategory("");
+    setAdHocSubcategory("");
+    setAdHocSaveToDb(false);
+    setAdHocConfirmStep(false);
     setShowAdHocForm(false);
-    toast.success(`"${newProduct.name}" adicionado ao lote`);
+    setAdHocSaving(false);
+
+    if (!adHocSaveToDb) {
+      toast.success(`"${newProduct.name}" adicionado ao lote`);
+    }
   };
+
+  // Volta do confirm pro form de edição
+  const handleAdHocBack = () => setAdHocConfirmStep(false);
 
   // Step 5: Gerar em lote
   const handleGerarLote = async () => {
@@ -1959,8 +2048,8 @@ export default function CriarPage() {
                   </span>
                 </div>
 
-                {/* Form ad-hoc inline */}
-                {showAdHocForm && (
+                {/* Form ad-hoc inline — com foto obrigatória + confirmação */}
+                {showAdHocForm && !adHocConfirmStep && (
                   <div className="rounded-xl border border-orange-500/40 bg-orange-500/5 p-3 space-y-2.5">
                     <p className="text-[11px] font-semibold text-orange-500 uppercase tracking-wider">
                       Cadastrar produto avulso
@@ -1984,6 +2073,39 @@ export default function CriarPage() {
                         placeholder="Ex: Saco 50kg | Alta resistência"
                         className="h-8 text-xs mt-0.5"
                       />
+                    </div>
+
+                    <div className="grid gap-2 grid-cols-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Categoria *</label>
+                        <Select value={adHocCategory} onValueChange={(v) => { setAdHocCategory(v ?? ""); setAdHocSubcategory(""); }}>
+                          <SelectTrigger className="h-8 text-xs mt-0.5">
+                            <SelectValue placeholder="Selecionar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.keys(CATEGORIAS_MATCON).map((cat) => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Subcategoria *</label>
+                        <Select
+                          value={adHocSubcategory}
+                          onValueChange={(v) => setAdHocSubcategory(v ?? "")}
+                          disabled={!adHocCategory}
+                        >
+                          <SelectTrigger className="h-8 text-xs mt-0.5">
+                            <SelectValue placeholder={adHocCategory ? "Selecionar" : "Cat. primeiro"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {adHocCategory && CATEGORIAS_MATCON[adHocCategory as keyof typeof CATEGORIAS_MATCON]?.map((sub: string) => (
+                              <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div className="grid gap-2 grid-cols-2">
@@ -2013,7 +2135,7 @@ export default function CriarPage() {
 
                     {adHocPriceType === "de-por" && (
                       <div>
-                        <label className="text-[10px] text-muted-foreground font-medium">Preço anterior (De)</label>
+                        <label className="text-[10px] text-muted-foreground font-medium">Preço anterior (De) *</label>
                         <Input
                           value={adHocPreviousPrice}
                           onChange={(e) => setAdHocPreviousPrice(e.target.value)}
@@ -2052,9 +2174,13 @@ export default function CriarPage() {
                       </div>
                     </div>
 
+                    {/* Foto obrigatória */}
                     <div>
-                      <label className="text-[10px] text-muted-foreground font-medium">Foto do produto (opcional)</label>
-                      <div className="mt-1 flex items-center gap-2">
+                      <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                        Foto do produto <span className="text-red-500">*</span>
+                        {!adHocImageFile && <span className="text-[9px] text-red-500">(obrigatória)</span>}
+                      </label>
+                      <div className={`mt-1 flex items-center gap-2 rounded border ${adHocImageFile ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"} p-2`}>
                         <input
                           type="file"
                           accept="image/*"
@@ -2064,10 +2190,10 @@ export default function CriarPage() {
                             setAdHocImageFile(file);
                             setAdHocImageUrl(URL.createObjectURL(file));
                           }}
-                          className="text-[10px] file:mr-2 file:rounded file:border-0 file:bg-orange-500/10 file:px-2 file:py-1 file:text-[10px] file:text-orange-500 file:font-medium hover:file:bg-orange-500/20 file:cursor-pointer cursor-pointer"
+                          className="text-[10px] file:mr-2 file:rounded file:border-0 file:bg-orange-500/10 file:px-2 file:py-1 file:text-[10px] file:text-orange-500 file:font-medium hover:file:bg-orange-500/20 file:cursor-pointer cursor-pointer flex-1"
                         />
                         {adHocImageUrl && (
-                          <div className="h-8 w-8 rounded border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0">
+                          <div className="h-10 w-10 rounded border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={adHocImageUrl} alt="preview" className="max-h-full max-w-full object-contain" />
                           </div>
@@ -2077,13 +2203,97 @@ export default function CriarPage() {
 
                     <Button
                       type="button"
-                      onClick={handleAddAdHocProduct}
+                      onClick={handleAdHocReview}
                       className="w-full h-9 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
-                      disabled={!adHocName.trim() || !adHocPrice.trim()}
+                      disabled={!isAdHocFormValid()}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1.5" />
-                      Adicionar ao lote
+                      <ChevronRight className="h-3.5 w-3.5 mr-1.5" />
+                      Revisar antes de adicionar
                     </Button>
+                  </div>
+                )}
+
+                {/* Tela de confirmação (review) */}
+                {showAdHocForm && adHocConfirmStep && (
+                  <div className="rounded-xl border border-green-500/40 bg-green-500/5 p-3 space-y-2.5">
+                    <p className="text-[11px] font-semibold text-green-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Confirme os dados
+                    </p>
+
+                    <div className="flex gap-3">
+                      {adHocImageUrl && (
+                        <div className="h-20 w-20 rounded-lg border border-border/40 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 p-1">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={adHocImageUrl} alt={adHocName} className="max-h-full max-w-full object-contain" />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-0.5 text-xs">
+                        <p className="font-bold truncate">{adHocName}</p>
+                        {adHocSpec && <p className="text-muted-foreground text-[10px]">{adHocSpec}</p>}
+                        <p className="text-[10px]">
+                          <span className="text-muted-foreground">Categoria:</span>{" "}
+                          <span className="font-medium">{adHocCategory}</span> / <span className="font-medium">{adHocSubcategory}</span>
+                        </p>
+                        <p className="text-[10px]">
+                          <span className="text-muted-foreground">
+                            {adHocPriceType === "de-por" ? "De/Por:" : adHocPriceType === "por-apenas" ? "Por apenas:" : "A partir de:"}
+                          </span>{" "}
+                          {adHocPriceType === "de-por" && (
+                            <span className="text-muted-foreground line-through mr-1">R$ {adHocPreviousPrice}</span>
+                          )}
+                          <span className="font-bold text-orange-500">R$ {adHocPrice}</span>
+                          <span className="text-muted-foreground"> / {adHocUnit} {adHocCondition}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Toggle salvar no banco */}
+                    <label className="flex items-start gap-2 rounded-lg border border-border/40 p-2 cursor-pointer hover:border-orange-500/40 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={adHocSaveToDb}
+                        onChange={(e) => setAdHocSaveToDb(e.target.checked)}
+                        className="mt-0.5 h-3.5 w-3.5 accent-orange-500 cursor-pointer"
+                      />
+                      <div className="flex-1 space-y-0.5">
+                        <p className="text-xs font-medium">Salvar no banco de dados</p>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                          Salva este produto permanentemente com foto, categoria e subcategoria. Você poderá reutilizá-lo em próximos lotes sem cadastrar de novo.
+                        </p>
+                      </div>
+                    </label>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={handleAdHocBack}
+                        variant="outline"
+                        className="flex-1 h-9 text-xs"
+                        disabled={adHocSaving}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleConfirmAdHocProduct}
+                        className="flex-1 h-9 text-xs bg-green-500 hover:bg-green-600 text-white border-0"
+                        disabled={adHocSaving}
+                      >
+                        {adHocSaving ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                            Confirmar {adHocSaveToDb && "e salvar"}
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
 

@@ -41,18 +41,19 @@ PRICE BLOCK — largest commercial element after the seal:
 {{PRICE_BLOCK}}
 Format strictly: "R$" symbol followed by integer, comma as decimal separator, superscript cents. Example: "R$ 159,90". NEVER use "$" alone. NEVER use period as decimal separator (period is only allowed as thousands separator in values above R$ 1.000). The price must be the largest text element after the campaign seal. The "% OFF" starburst seal (if present) MUST keep at least 40 pixels of clearance from the product photograph and must NOT overlap with it.
 
-WHATSAPP CTA BUTTON — bottom centered:
+WHATSAPP CTA BUTTON — bottom centered (the primary action element):
 Text exactly reads: "{{CTA_TEXT}}"
 Render as a rounded rectangular button in WhatsApp green (#25D366), centered horizontally in the lower fifth of the canvas, with white extra-bold sans-serif text and a subtle drop shadow. The button feels clickable and is the action focal point. The green CTA must remain prominent even in premium or minimal styles — never shrink, never fade, never desaturate.
-{{PHONE_BLOCK}}
+IMPORTANT: Do NOT place the phone number next to the CTA button. Phone goes in the footer with the store info (see below). The CTA button stands alone — clicking it is what matters, not calling.
 
-STORE INFORMATION — footer:
-Store name: "{{CLIENT_NAME}}"
-{{STORE_ADDRESS_BLOCK}}
-
-VALIDITY DISCLAIMER:
+VALIDITY BADGE — dedicated element, not a disclaimer:
 {{VALIDITY_BLOCK}}
-Render as small italic text. Position: rotated 90° on the right edge of the canvas (vertical), or as a thin horizontal strip at the very bottom. Color: light gray on dark background, or dark gray on light background — always low-contrast and secondary.
+
+STORE INFORMATION — elegant footer:
+Store name: "{{CLIENT_NAME}}"
+Render the footer as a clean horizontal strip at the very bottom of the canvas with TWO contact elements side by side (or stacked on two lines if space is tight), both in small but readable text, both using a light elegant weight:
+{{STORE_CONTACT_BLOCK}}
+The footer is elegant and secondary — small but legible, not shouting. Use neutral colors (white on dark background, dark gray on light background). The two contact items (address and phone) should be balanced visually, each with its own icon, not competing with the CTA button above.
 
 ═══════════════════════════════════════════════════════════
 BRAND ELEMENTS
@@ -180,10 +181,11 @@ You MUST preserve these elements from the reference image without ANY modificati
 - Overall layout and composition
 - Background color, gradient, and texture
 - Campaign seal ("{{PROMOTION_NAME}}") — same text, same 3D treatment, same position, same size
-- WhatsApp CTA button — same green color, same text, same position, same size
+- WhatsApp CTA button — same green color, same text, same position, same size (phone number must NOT be placed next to the button)
 - Store logo — same logo, same position, same size (upper-right corner)
-- Store name "{{CLIENT_NAME}}" and footer information
-- Address, phone, validity disclaimer — all text and positioning identical
+- Store name "{{CLIENT_NAME}}" and footer contact information
+- Validity badge — same position, same size, same treatment (if present in the reference)
+- Footer with address + phone elegantly positioned side by side with their icons — NOT next to the CTA button
 - Decorative elements (hazard tape, coins, hearts, sparkles, etc.) — EXACT same placement
 - Typography family (fonts, weights, colors for seal/body/price)
 - Color palette and saturation levels
