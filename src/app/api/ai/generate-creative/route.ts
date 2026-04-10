@@ -60,11 +60,10 @@ export async function POST(request: Request) {
       adjustmentPrompt,
     } = JSON.parse(dataRaw);
 
-    const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (!geminiKey) {
-      return NextResponse.json({ error: "GOOGLE_GEMINI_API_KEY não configurada" }, { status: 500 });
+    if (!openaiKey) {
+      return NextResponse.json({ error: "OPENAI_API_KEY não configurada" }, { status: 500 });
     }
 
     const primaryColor = clientColors?.[0] || "#F97316";
@@ -103,131 +102,82 @@ export async function POST(request: Request) {
       adjustmentPrompt,
     });
 
-    // Todas as 3 variações usam gpt-image-1.5 por padrão.
-    // Gemini serve apenas como fallback automático quando o OpenAI falha.
-    const useOpenAI = !!openaiKey;
     const hasInputImages = !!(logoFile || productImageFile || referenceImageFile);
 
     let imageBuffer: Buffer | null = null;
 
-    if (useOpenAI) {
-      // ─── OpenAI gpt-image-1.5 ────────────────────────────────────
-      // Quando há imagens reais (logo/produto/referência), usa o endpoint
-      // /v1/images/edits com multipart — ele aceita múltiplas imagens via image[]
-      // e usa elas como input visual real (logo e foto do produto preservados).
-      //
-      // Quando não há imagens, usa /v1/images/generations (text-to-image puro).
-      try {
-        let openaiRes: Response;
+    // ─── OpenAI gpt-image-1.5 (único modelo) ─────────────────────────
+    // Quando há imagens reais (logo/produto/referência), usa /v1/images/edits
+    // com multipart — aceita múltiplas imagens via image[] e usa como input
+    // visual real (logo e foto do produto preservados).
+    //
+    // Quando não há imagens, usa /v1/images/generations (text-to-image puro).
+    try {
+      let openaiRes: Response;
 
-        if (hasInputImages) {
-          const openaiForm = new FormData();
-          openaiForm.append("model", "gpt-image-1.5");
-          openaiForm.append("prompt", prompt);
-          openaiForm.append("n", "1");
-          openaiForm.append("size", "1024x1024");
+      if (hasInputImages) {
+        const openaiForm = new FormData();
+        openaiForm.append("model", "gpt-image-1.5");
+        openaiForm.append("prompt", prompt);
+        openaiForm.append("n", "1");
+        openaiForm.append("size", "1024x1024");
 
-          // Ordem importa: produto primeiro (hero), depois logo, depois referência.
-          if (productImageFile) {
-            openaiForm.append("image[]", productImageFile, "product.png");
-          }
-          if (logoFile) {
-            openaiForm.append("image[]", logoFile, "logo.png");
-          }
-          if (referenceImageFile) {
-            openaiForm.append("image[]", referenceImageFile, "reference.png");
-          }
-
-          openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
-            method: "POST",
-            headers: {
-              // NÃO setar Content-Type — fetch com FormData define automaticamente
-              // o boundary correto do multipart.
-              "Authorization": `Bearer ${openaiKey}`,
-            },
-            body: openaiForm,
-          });
-        } else {
-          openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${openaiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-image-1.5",
-              prompt: prompt,
-              n: 1,
-              size: "1024x1024",
-            }),
-          });
+        // Ordem importa: produto primeiro (hero), depois logo, depois referência.
+        if (productImageFile) {
+          openaiForm.append("image[]", productImageFile, "product.png");
+        }
+        if (logoFile) {
+          openaiForm.append("image[]", logoFile, "logo.png");
+        }
+        if (referenceImageFile) {
+          openaiForm.append("image[]", referenceImageFile, "reference.png");
         }
 
-        if (openaiRes.ok) {
-          const data = await openaiRes.json();
-          const b64 = data.data?.[0]?.b64_json;
-          if (b64) {
-            imageBuffer = Buffer.from(b64, "base64");
-          }
-        } else {
-          const errText = await openaiRes.text();
-          console.error("OpenAI API error:", errText.substring(0, 500));
-        }
-
-        if (!imageBuffer) {
-          console.error("OpenAI não gerou imagem, falling back to Gemini");
-        }
-      } catch (err) {
-        console.error("OpenAI error:", err instanceof Error ? err.message : err);
-      }
-    }
-
-    // ─── Gemini (variação 3 ou fallback) ─────────────────────────────
-    if (!imageBuffer) {
-      const parts: Array<Record<string, unknown>> = [];
-
-      if (referenceImageFile) {
-        const refB64 = Buffer.from(await referenceImageFile.arrayBuffer()).toString("base64");
-        parts.push({ inlineData: { mimeType: referenceImageFile.type || "image/png", data: refB64 } });
-      }
-      if (logoFile) {
-        const logoB64 = Buffer.from(await logoFile.arrayBuffer()).toString("base64");
-        parts.push({ inlineData: { mimeType: logoFile.type || "image/png", data: logoB64 } });
-      }
-      if (productImageFile) {
-        const prodB64 = Buffer.from(await productImageFile.arrayBuffer()).toString("base64");
-        parts.push({ inlineData: { mimeType: productImageFile.type || "image/png", data: prodB64 } });
-      }
-
-      parts.push({ text: prompt });
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
-        {
+        openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            // NÃO setar Content-Type — fetch com FormData define automaticamente
+            // o boundary correto do multipart.
+            "Authorization": `Bearer ${openaiKey}`,
+          },
+          body: openaiForm,
+        });
+      } else {
+        openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiKey}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            model: "gpt-image-1.5",
+            prompt: prompt,
+            n: 1,
+            size: "1024x1024",
           }),
-        }
+        });
+      }
+
+      if (!openaiRes.ok) {
+        const errText = await openaiRes.text();
+        console.error("OpenAI API error:", errText.substring(0, 500));
+        return NextResponse.json(
+          { error: `Erro na API OpenAI: ${openaiRes.status}` },
+          { status: openaiRes.status }
+        );
+      }
+
+      const data = await openaiRes.json();
+      const b64 = data.data?.[0]?.b64_json;
+      if (b64) {
+        imageBuffer = Buffer.from(b64, "base64");
+      }
+    } catch (err) {
+      console.error("OpenAI error:", err instanceof Error ? err.message : err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Erro ao chamar OpenAI" },
+        { status: 500 }
       );
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("Gemini API error:", errText.substring(0, 500));
-        return NextResponse.json({ error: `Erro na API: ${res.status}` }, { status: res.status });
-      }
-
-      const data = await res.json();
-      const responseParts = data.candidates?.[0]?.content?.parts || [];
-
-      for (const part of responseParts) {
-        if (part.inlineData) {
-          imageBuffer = Buffer.from(part.inlineData.data, "base64");
-          break;
-        }
-      }
     }
 
     if (!imageBuffer) {

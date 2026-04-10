@@ -52,15 +52,16 @@ Reference benchmarks: Simplifique Home Center "72H E SURRA DE PREÇO BAIXO" camp
   2: {
     id: 2,
     name: "Sazonal Festivo 3D",
-    tagline: "Gradiente vibrante, selo 3D temático, corações/moedas flutuando",
+    tagline: "Gradiente vibrante, selo 3D temático, moedas/cifrões flutuando",
     density: "high",
     useWhen: "Datas comemorativas (Mulher, Mães, Consumidor, Black Friday, Natal)",
-    block: `Family: SAZONAL FESTIVO 3D.
+    block: `Family: SAZONAL FESTIVO 3D (festivo adulto comercial — nunca infantil).
 Background: vibrant saturated gradient in the brand primary color, fading to a darker shade. Smooth, modern, slightly glossy.
-Decorative elements: floating 3D thematic objects matching the season — coins, dollar signs, hearts, shopping carts, gift boxes, calendar pages, falling petals, balloons. All rendered in glossy 3D with realistic lighting and soft drop shadows. Elements are placed around the seal and edges, never on top of the product.
+Decorative elements: floating 3D ABSTRACT OBJECTS ONLY — coins, dollar signs (cifrões), percentage symbols, gift boxes, sparkle accents, confetti, ribbon arcs, calendar date numbers, shopping bag icons. All rendered in glossy 3D with realistic lighting and soft drop shadows. Elements are placed around the seal and edges, never on top of the product.
+CRITICAL — NEVER render: mascots, cartoon characters, human figures, humanoid shapes, personified tools (hammers with faces, paint cans with eyes, etc.), construction workers, animals, toys, or any anthropomorphic elements. NO characters of any kind. The decoration is purely abstract retail iconography.
 Color palette: vibrant saturated colors — hot pink, electric purple, bright orange, sunshine yellow, sky blue. High glossy finish.
-Mood: festive, celebratory, sazonal campaign (Mother's Day, Consumer Week, Black Friday, Easter, Carnaval, Christmas), youthful, energetic.
-Reference benchmarks: Renovar "Chegou Abril Preço Caiu", Lediô "Hoje tem Ofertão", Rei dos Pisos "Especial Semana da Mulher".`,
+Mood: festive adult commercial retail, sazonal campaign (Mother's Day, Consumer Week, Black Friday, Easter, Christmas). Energetic and joyful but professional — NEVER youth-cute, NEVER cartoon, NEVER childish, NEVER Instagrammable-candy. Think: modern Brazilian retail agency campaign, not children's TV or toy packaging.
+Reference benchmarks: Renovar "Chegou Abril Preço Caiu", Lediô "Hoje tem Ofertão", Rei dos Pisos "Especial Semana da Mulher" — all adult commercial, all abstract decoration.`,
   },
 
   3: {

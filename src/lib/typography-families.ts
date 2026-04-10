@@ -104,12 +104,12 @@ export const TYPOGRAPHY_FAMILIES_LIST: TypographyFamily[] = Object.values(TYPOGR
  */
 export const RECOMMENDED_TYPOGRAPHY_FOR_STYLE: Record<number, number> = {
   1: 1, // Industrial Hard-Sale → Industrial Chrome
-  2: 2, // Sazonal Festivo 3D → Glossy Balloon 3D
+  2: 4, // Sazonal Festivo 3D → Modern Heavy Sans (evita cara infantil do Balloon)
   3: 4, // Premium Comercial Brasileiro → Modern Heavy Sans
   4: 3, // Liquidação Gritante → Cupom Varejo Clássico
-  5: 2, // Friendly Daily Deal → Glossy Balloon 3D
+  5: 4, // Friendly Daily Deal → Modern Heavy Sans (era Balloon, ficava infantil)
   6: 4, // Modern Black & Gold → Modern Heavy Sans
-  7: 2, // Sazonal Split Hot → Glossy Balloon 3D
-  8: 2, // Soft Feminine Promo → Glossy Balloon 3D
-  9: 2, // Warm Sunset Sazonal → Glossy Balloon 3D
+  7: 4, // Sazonal Split Hot → Modern Heavy Sans (era Balloon)
+  8: 4, // Soft Feminine Promo → Modern Heavy Sans (era Balloon — premium adulto)
+  9: 4, // Warm Sunset Sazonal → Modern Heavy Sans (era Balloon)
 };

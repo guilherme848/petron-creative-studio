@@ -120,6 +120,9 @@ DO NOT render any of the following:
 - Empty / dead space without commercial function
 - Watermarks, signatures, or unrequested branding
 - The "% OFF" starburst overlapping with the product photograph
+- Mascots, cartoon characters, human figures, humanoid shapes, construction workers, or personified tools (hammers with faces, paint cans with eyes, etc.). NO characters of any kind — only abstract retail iconography is allowed
+- Infantile, childish, candy, cartoon, or toy-packaging aesthetic. This is adult commercial retail, not children's TV
+- Inflated balloon-style 3D letters that look puffy or cartoonish (unless the typography family explicitly asks for them, AND the style supports it)
 
 ═══════════════════════════════════════════════════════════
 TYPOGRAPHY — GLOBAL RULES
