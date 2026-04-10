@@ -21,9 +21,18 @@ import {
   LayoutDashboard,
   MessageSquare,
   Images,
+  BarChart3,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+
+interface SidebarUser {
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  role: string;
+  isAdmin: boolean;
+}
 
 const menuItems = [
   {
@@ -48,8 +57,15 @@ const menuItems = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
+  const initials = user.name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <Sidebar className="border-r border-sidebar-border/50">
@@ -127,21 +143,50 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user.isAdmin && (
+          <SidebarGroup className="mt-2">
+            <SidebarGroupLabel className="px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/admin" />}
+                    isActive={pathname === "/admin"}
+                    className={
+                      pathname === "/admin"
+                        ? "relative bg-orange-500/10 text-orange-400 shadow-[inset_0_0_0_1px_hsl(25_95%_53%_/_0.15)] hover:bg-orange-500/15 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:bg-gradient-to-b before:from-[#F97316] before:to-[#f43f5e]"
+                        : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+                    }
+                  >
+                    <BarChart3
+                      className={`h-4 w-4 shrink-0 ${pathname === "/admin" ? "text-orange-400" : ""}`}
+                    />
+                    <span className="text-[13px] font-medium">Admin</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/50 p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-sidebar-accent/40 cursor-pointer">
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
           <Avatar className="h-8 w-8 border border-sidebar-border">
+            {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
             <AvatarFallback className="bg-gradient-to-br from-orange-500/20 to-rose-500/20 text-orange-400 text-xs font-semibold">
-              PC
+              {initials || "PC"}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-1 min-w-0">
             <span className="text-xs font-semibold text-sidebar-foreground truncate">
-              Petron
+              {user.name}
             </span>
-            <span className="text-[10px] text-muted-foreground truncate">
-              Creative Studio
+            <span className="text-[10px] text-muted-foreground truncate capitalize">
+              {user.role}
             </span>
           </div>
         </div>

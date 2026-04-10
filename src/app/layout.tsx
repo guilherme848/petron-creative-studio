@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
+import { getAuthUserOrNull } from "@/lib/auth";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,11 +24,24 @@ export const metadata: Metadata = {
   description: "Geração automática de criativos para Meta Ads",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const authUser = await getAuthUserOrNull();
+
+  // Props serializáveis pros client components
+  const userProps = authUser
+    ? {
+        name: authUser.name,
+        email: authUser.email,
+        avatarUrl: authUser.avatarUrl,
+        role: authUser.creativeRole,
+        isAdmin: authUser.isAdmin,
+      }
+    : null;
+
   return (
     <html
       lang="pt-BR"
@@ -37,19 +51,25 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
           <TooltipProvider>
-            <SidebarProvider>
-              <div className="flex min-h-screen w-full">
-                <AppSidebar />
-                <div className="flex flex-1 flex-col">
-                  <AppHeader />
-                  <main className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="mx-auto max-w-7xl px-6 py-8">
-                      {children}
-                    </div>
-                  </main>
+            {userProps ? (
+              // Logado: layout completo com sidebar + header
+              <SidebarProvider>
+                <div className="flex min-h-screen w-full">
+                  <AppSidebar user={userProps} />
+                  <div className="flex flex-1 flex-col">
+                    <AppHeader user={userProps} />
+                    <main className="flex-1 overflow-y-auto custom-scrollbar">
+                      <div className="mx-auto max-w-7xl px-6 py-8">
+                        {children}
+                      </div>
+                    </main>
+                  </div>
                 </div>
-              </div>
-            </SidebarProvider>
+              </SidebarProvider>
+            ) : (
+              // Não logado: /login ou erro — renderiza só children, sem chrome
+              <>{children}</>
+            )}
           </TooltipProvider>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
