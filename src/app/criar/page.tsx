@@ -501,22 +501,16 @@ export default function CriarPage() {
     }
   };
 
-  // Step 4: Gerar 3 variações de estilo por wave
-  // waveIndex: 0 = primeira wave (reseta tudo), 1+ = waves subsequentes (acumulam)
-  const handleGerarVariacoes = async (waveIndex: number = 0) => {
-    if (waveIndex >= STYLE_WAVES.length) return;
+  // Step 4: Gerar a PRÓXIMA wave de 3 estilos (sempre acumula, nunca reseta)
+  const handleGerarVariacoes = async () => {
+    const waveIndex = currentWave; // wave a ser gerada agora
+    if (waveIndex >= STYLE_WAVES.length) return; // todas as 9 já geradas
 
     setGerandoVariacoes(true);
     setVariacaoProgresso(0);
 
-    // Wave 0 reseta tudo; waves subsequentes acumulam
-    if (waveIndex === 0) {
-      setVariations([]);
-      setSelectedVariation(null);
-    }
-
     const wave = STYLE_WAVES[waveIndex];
-    const accumulated: VariationResult[] = waveIndex === 0 ? [] : [...variations];
+    const accumulated: VariationResult[] = [...variations]; // sempre parte do atual
 
     for (let i = 0; i < wave.length; i++) {
       const styleFamily = wave[i];
@@ -550,6 +544,14 @@ export default function CriarPage() {
       toast.success(`${wave.length} estilos ${waveLabel} gerados! (${totalNow}/9 no total)`);
     }
     setGerandoVariacoes(false);
+  };
+
+  // Limpar tudo e voltar ao início (botão explícito, sem surpresas)
+  const handleLimparVariacoes = () => {
+    setVariations([]);
+    setSelectedVariation(null);
+    setCurrentWave(0);
+    toast.info("Estilos gerados foram limpos");
   };
 
   // Step 5: Gerar em lote
@@ -1745,62 +1747,51 @@ export default function CriarPage() {
                   )}
                 </div>
 
-                {/* Botão primário: Wave 1 (sempre reseta) */}
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                  onClick={() => handleGerarVariacoes(0)}
-                  disabled={gerandoVariacoes}
-                >
-                  {gerandoVariacoes && currentWave === 0 ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Gerando {variacaoProgresso}/3...
-                    </>
-                  ) : variations.length > 0 ? (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Regerar do início (limpa tudo)
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Gerar 3 estilos diferentes
-                    </>
-                  )}
-                </Button>
-
-                {/* Botão secundário: Waves 2 e 3 (acumulam) */}
-                {currentWave > 0 && currentWave < STYLE_WAVES.length && (
+                {/* Botão único: sempre gera a PRÓXIMA wave (acumula, nunca reseta) */}
+                {currentWave < STYLE_WAVES.length && (
                   <Button
-                    variant="outline"
-                    className="w-full h-11 border-orange-500/40 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 btn-micro"
-                    onClick={() => handleGerarVariacoes(currentWave)}
+                    className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
+                    onClick={handleGerarVariacoes}
                     disabled={gerandoVariacoes}
                   >
-                    {gerandoVariacoes && currentWave > 0 ? (
+                    {gerandoVariacoes ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                         Gerando {variacaoProgresso}/3...
                       </>
+                    ) : currentWave === 0 ? (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Gerar 3 estilos diferentes
+                      </>
                     ) : (
                       <>
                         <Sparkles className="h-4 w-4 mr-2" />
-                        Gerar mais 3 estilos ({variations.length}/9 gerados)
+                        Gerar mais 3 estilos ({variations.length}/9)
                       </>
                     )}
                   </Button>
                 )}
 
-                {/* Banner: tokens já consumidos */}
+                {/* Banner: tokens já consumidos + ação de limpar discreta */}
                 {variations.length > 0 && !gerandoVariacoes && (
                   <div className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-2.5">
                     <AlertTriangle className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      <span className="font-medium text-foreground">{variations.length} de 9 estilos</span> já gerados.
-                      {currentWave >= STYLE_WAVES.length
-                        ? " Todos os 9 estilos disponíveis já estão na tela — escolha um pra seguir."
-                        : " Cada geração consome tokens do gpt-image-1.5 — gere apenas se precisar mais opções."}
-                    </p>
+                    <div className="flex-1 space-y-1.5">
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        <span className="font-medium text-foreground">{variations.length} de 9 estilos</span> já gerados.
+                        {currentWave >= STYLE_WAVES.length
+                          ? " Todos os 9 estilos já estão na tela — escolha um pra seguir."
+                          : " Cada geração consome tokens do gpt-image-1.5 — gere apenas se precisar mais opções."}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleLimparVariacoes}
+                        className="text-[11px] text-muted-foreground hover:text-destructive underline underline-offset-2"
+                      >
+                        Limpar todos e recomeçar
+                      </button>
+                    </div>
                   </div>
                 )}
 
