@@ -177,15 +177,17 @@ export const DEFAULT_STYLE_ID = 1;
  * "Gerar 3 estilos diferentes" continue funcionando sem mudanças na UI,
  * mas usando os novos prompts mestre.
  *
- * Escolhi os 3 styles mais distintos visualmente para dar variedade real:
- *  - Variação 1 → Industrial Hard-Sale (agressivo, hard-sell)
- *  - Variação 2 → Sazonal Festivo 3D (festivo, colorido)
- *  - Variação 3 → Premium Comercial Brasileiro (limpo, premium retail)
+ * Objetivo: cada variação cobre uma vibe visual MUITO distinta das outras
+ * para dar ao usuário uma comparação real entre estilos.
+ *
+ *  - Variação 1 → Industrial Hard-Sale (denso, agressivo, cenário industrial)
+ *  - Variação 2 → Sazonal Festivo 3D   (denso, festivo, colorido, 3D temático)
+ *  - Variação 3 → Modern Black & Gold  (respirado, sofisticado, preto+dourado)
  */
 export const LEGACY_STYLE_VARIATION_MAP: Record<number, number> = {
   1: 1, // Industrial Hard-Sale
   2: 2, // Sazonal Festivo 3D
-  3: 3, // Premium Comercial Brasileiro
+  3: 6, // Modern Black & Gold
 };
 
 /** Lista ordenada de styles pra exibição em UI (grid, dropdown, etc.) */

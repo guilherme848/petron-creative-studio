@@ -103,8 +103,9 @@ export async function POST(request: Request) {
       adjustmentPrompt,
     });
 
-    // Decidir modelo: variações 1 e 2 → gpt-image-1.5, variação 3 → Gemini
-    const useOpenAI = (styleVariation === 1 || styleVariation === 2) && openaiKey;
+    // Todas as 3 variações usam gpt-image-1.5 por padrão.
+    // Gemini serve apenas como fallback automático quando o OpenAI falha.
+    const useOpenAI = !!openaiKey;
     const hasInputImages = !!(logoFile || productImageFile || referenceImageFile);
 
     let imageBuffer: Buffer | null = null;
