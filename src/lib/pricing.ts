@@ -2,16 +2,40 @@
  * PRICING — Petron Creative Studio
  *
  * Estimativa de custo em USD das chamadas de API que o Creative Studio faz.
- * Valores baseados no pricing público da OpenAI (abril 2026, 1024x1024 quality
- * médio). Ajustável via env vars pra acompanhar mudanças de preço sem deploy:
  *
- *   OPENAI_IMAGE_COST_USD        = 0.07    (padrão gpt-image-1.5 1024x1024)
- *   OPENAI_IMAGE_EDIT_COST_USD   = 0.10    (padrão gpt-image-1.5 /edits 1024x1024)
- *   OPENAI_4O_MINI_INPUT_PER_1M  = 0.15    (USD por 1M input tokens)
- *   OPENAI_4O_MINI_OUTPUT_PER_1M = 0.60    (USD por 1M output tokens)
+ * ═══════════════════════════════════════════════════════════════
+ * Preços oficiais OpenAI (referência abril 2026)
+ * ═══════════════════════════════════════════════════════════════
  *
- * Cotação USD→BRL também configurável:
- *   BRL_PER_USD = 5.20
+ * gpt-image-1 / gpt-image-1.5  (cobrado por tokens de output de imagem)
+ *   - Text tokens:    $5.00 / 1M input,  $40.00 / 1M output
+ *   - Image tokens:   $40.00 / 1M output
+ *
+ *   Tokens por imagem 1024x1024 (quality: "auto" = medium):
+ *     ~1056 image output tokens → 1056 × $40/1M = $0.0422 por imagem
+ *
+ *   Endpoint /v1/images/edits (multipart com input images):
+ *     Mesmo custo de output + custo dos input image tokens
+ *     Cada imagem de input pesa ~260 tokens adicionais
+ *     2 inputs (produto + logo) = ~520 tokens * $10/1M = $0.0052
+ *     Total: ~$0.0474 por edit com 2 imagens de input
+ *
+ * gpt-4o-mini  (usado no refine-adjustment)
+ *   - Input:  $0.150 / 1M tokens
+ *   - Output: $0.600 / 1M tokens
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * Override via env vars (ajuste sem redeploy)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *   OPENAI_IMAGE_COST_USD        (default: 0.042)
+ *   OPENAI_IMAGE_EDIT_COST_USD   (default: 0.048)
+ *   OPENAI_4O_MINI_INPUT_PER_1M  (default: 0.15)
+ *   OPENAI_4O_MINI_OUTPUT_PER_1M (default: 0.60)
+ *   BRL_PER_USD                  (default: 5.20)
+ *
+ * Quando a OpenAI mudar os preços, você só atualiza a env var no Vercel
+ * e reinicia — nenhum deploy de código necessário.
  */
 
 const num = (name: string, fallback: number): number => {
@@ -22,16 +46,27 @@ const num = (name: string, fallback: number): number => {
 };
 
 export const PRICING = {
-  /** Preço de 1 imagem gerada via /v1/images/generations (gpt-image-1.5 1024x1024) */
-  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.07),
-  /** Preço de 1 imagem via /v1/images/edits (multipart com inputs) */
-  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.10),
-  /** Input token (gpt-4o-mini) USD / 1M */
+  /**
+   * Preço de 1 imagem gerada via /v1/images/generations
+   * gpt-image-1.5 · 1024x1024 · quality "auto" (medium)
+   * = 1056 image output tokens × $40/1M = $0.0422
+   */
+  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.042),
+  /**
+   * Preço de 1 imagem via /v1/images/edits com 1-3 input images
+   * Base: $0.0422 (output) + ~$0.006 (input image tokens) = ~$0.048
+   */
+  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.048),
+  /** gpt-4o-mini — USD / 1M input tokens */
   mini4oInputPerMillion: num("OPENAI_4O_MINI_INPUT_PER_1M", 0.15),
-  /** Output token (gpt-4o-mini) USD / 1M */
-  mini4oOutputPerMillion: num("OPENAI_4O_MINI_OUTPUT_PER_1M", 0.60),
-  /** Cotação USD→BRL pra exibir no dashboard em reais */
-  brlPerUsd: num("BRL_PER_USD", 5.2),
+  /** gpt-4o-mini — USD / 1M output tokens */
+  mini4oOutputPerMillion: num("OPENAI_4O_MINI_OUTPUT_PER_1M", 0.6),
+  /**
+   * Cotação USD→BRL pra exibir no dashboard em reais.
+   * Abril/2026: ~R$ 5.20-5.80. Default conservador 5.40.
+   * Ajustar via env var BRL_PER_USD quando a cotação mudar significativamente.
+   */
+  brlPerUsd: num("BRL_PER_USD", 5.4),
 } as const;
 
 /**

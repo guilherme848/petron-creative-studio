@@ -34,10 +34,11 @@ import type { AdminData, UserTotals } from "./page";
 
 interface Props {
   data: AdminData;
+  brlPerUsd: number;
 }
 
-const BRL_PER_USD = 5.2;
-const formatBrl = (usd: number) => `R$ ${(usd * BRL_PER_USD).toFixed(2).replace(".", ",")}`;
+const formatBrl = (usd: number, rate: number) =>
+  `R$ ${(usd * rate).toFixed(2).replace(".", ",")}`;
 const formatHours = (minutes: number) => {
   if (minutes < 60) return `${minutes}min`;
   const h = Math.floor(minutes / 60);
@@ -45,7 +46,7 @@ const formatHours = (minutes: number) => {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 };
 
-export function AdminDashboard({ data }: Props) {
+export function AdminDashboard({ data, brlPerUsd }: Props) {
   const [selectedUser, setSelectedUser] = useState<UserTotals | null>(null);
 
   const exportCsv = () => {
@@ -59,7 +60,7 @@ export function AdminDashboard({ data }: Props) {
         u.total_adjustments,
         u.total_exports,
         (u.total_cost_usd || 0).toFixed(4),
-        formatBrl(u.total_cost_usd || 0),
+        formatBrl(u.total_cost_usd || 0, brlPerUsd),
         formatHours(u.minutes_saved || 0),
       ]),
     ];
@@ -138,7 +139,7 @@ export function AdminDashboard({ data }: Props) {
           <KpiCard
             icon={<DollarSign className="h-4 w-4" />}
             label="Custo total"
-            value={formatBrl(data.totals.costUsd)}
+            value={formatBrl(data.totals.costUsd, brlPerUsd)}
             sub={`$${data.totals.costUsd.toFixed(2)}`}
           />
           <KpiCard
@@ -305,7 +306,7 @@ export function AdminDashboard({ data }: Props) {
                     <Row label="Criativos" value={selectedUser.total_creatives} />
                     <Row label="Ajustes" value={selectedUser.total_adjustments} />
                     <Row label="Exports" value={selectedUser.total_exports} />
-                    <Row label="Custo total" value={formatBrl(selectedUser.total_cost_usd || 0)} />
+                    <Row label="Custo total" value={formatBrl(selectedUser.total_cost_usd || 0, brlPerUsd)} />
                     <Row
                       label="Tempo economizado"
                       value={formatHours(selectedUser.minutes_saved || 0)}

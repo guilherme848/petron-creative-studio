@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { getAuthUserOrNull } from "@/lib/auth";
+import { logUsageEvent } from "@/lib/tracking";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +44,8 @@ export async function GET(request: Request) {
 }
 
 // PATCH — aprovar criativos (marcar como exported/approved)
+// Também grava um evento usage_events por criativo exportado, pro tracking
+// no dashboard /admin (minutos economizados, custo, ranking por usuário).
 export async function PATCH(request: Request) {
   try {
     const { ids } = await request.json();
@@ -50,6 +54,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Missing creative ids" }, { status: 400 });
     }
 
+    // Busca metadados dos criativos ANTES do update (pra pegar client_id)
+    const { data: creatives } = await supabase
+      .from("creatives")
+      .select("id, client_id, promotion_id")
+      .in("id", ids);
+
     const { error } = await supabase
       .from("creatives")
       .update({ status: "approved" })
@@ -57,6 +67,23 @@ export async function PATCH(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Track: 1 evento export_creative por criativo aprovado
+    const authUser = await getAuthUserOrNull();
+    if (authUser && creatives) {
+      await Promise.all(
+        creatives.map((c: { id: string; client_id: string | null; promotion_id: string | null }) =>
+          logUsageEvent({
+            userId: authUser.localUserId,
+            eventType: "export_creative",
+            creativeId: c.id,
+            clientId: c.client_id,
+            outcome: "success",
+            metadata: { promotion_id: c.promotion_id },
+          })
+        )
+      );
     }
 
     return NextResponse.json({ approved: ids.length });

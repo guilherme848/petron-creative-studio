@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthUser } from "@/lib/auth";
+import { PRICING } from "@/lib/pricing";
 import { AdminDashboard } from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -182,5 +183,5 @@ export default async function AdminPage() {
   if (!data) {
     redirect("/");
   }
-  return <AdminDashboard data={data} />;
+  return <AdminDashboard data={data} brlPerUsd={PRICING.brlPerUsd} />;
 }
