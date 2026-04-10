@@ -130,11 +130,12 @@ TYPOGRAPHY — GLOBAL RULES
 
 {{TYPOGRAPHY_FAMILY_BLOCK}}
 
+{{USER_GUIDANCE_BLOCK}}
+
 ═══════════════════════════════════════════════════════════
 OUTPUT SPECIFICATION
 ═══════════════════════════════════════════════════════════
 
 Single static image. Aspect ratio 1:1. Resolution 1080x1080 pixels. Color space sRGB. Sharp, polished, commercial-grade, ready for Meta Ads (Instagram and Facebook feed). Indistinguishable from a creative made by a Brazilian retail design agency. The piece transmits: confidence, urgency, opportunity, real value, and commercial credibility.
 
-(seed: {{RANDOM_SEED}})
-{{ADJUSTMENT_BLOCK}}`;
+(seed: {{RANDOM_SEED}})`;

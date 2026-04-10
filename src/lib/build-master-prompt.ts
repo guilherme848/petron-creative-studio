@@ -125,8 +125,25 @@ export function buildMasterPrompt(input: BriefingInput): string {
     ? `CRITICAL — STORE LOGO FROM INPUT: The store logo is provided as a separate input image. Use it EXACTLY as provided — never modify, recolor, distort, redraw, or stylize it. Place it in the upper-right corner of the canvas at small-to-medium size with clean margins. Render this logo ONCE only — do NOT duplicate it anywhere else in the composition.`
     : `Generate a small professional emblem-style badge for the store "${input.clientName}" — render this brand emblem ONCE only, in the upper-right corner. Do NOT duplicate the logo anywhere else.`;
 
-  const adjustmentBlock = input.adjustmentPrompt
-    ? `\nADDITIONAL ADJUSTMENT REQUESTED BY USER: ${input.adjustmentPrompt}`
+  // USER GUIDANCE BLOCK — orientações livres do usuário injetadas com
+  // alta prioridade ANTES do OUTPUT SPECIFICATION. Essas instruções têm
+  // precedência sobre regras de layout, composição e estilo — mas NÃO
+  // sobrescrevem as ANTI-AI CHECKS (que são absolutas).
+  const userGuidanceBlock = input.adjustmentPrompt?.trim()
+    ? `═══════════════════════════════════════════════════════════
+USER GUIDANCE — HIGH PRIORITY INSTRUCTIONS
+═══════════════════════════════════════════════════════════
+
+The user has provided the following specific guidance for THIS creative. Apply these instructions with HIGH PRIORITY — they override the default layout, composition, and style decisions above. However, they do NOT override the ANTI-AI CHECKS (those remain absolute) or the CONTENT section (product name, price, CTA, store info must still appear exactly as specified).
+
+USER INSTRUCTIONS (in Brazilian Portuguese, apply their intent):
+"${input.adjustmentPrompt.trim()}"
+
+Apply these instructions while preserving:
+- The chosen visual style family
+- All text content in the CONTENT section (product name, price, CTA, etc.)
+- The ANTI-AI CHECKS
+- The brand color and store logo positioning`
     : "";
 
   // ─── 4. Mapeamento slots → valores ─────────────────────────────────────
@@ -148,7 +165,7 @@ export function buildMasterPrompt(input: BriefingInput): string {
     TYPOGRAPHY_BODY_BLOCK: typoFamily.bodyBlock,
     TYPOGRAPHY_FAMILY_BLOCK: typoFamily.globalBlock,
     RANDOM_SEED: String(seed),
-    ADJUSTMENT_BLOCK: adjustmentBlock,
+    USER_GUIDANCE_BLOCK: userGuidanceBlock,
   };
 
   // ─── 5. Substituir slots ────────────────────────────────────────────────

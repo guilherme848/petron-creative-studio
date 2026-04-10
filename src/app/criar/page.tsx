@@ -118,6 +118,7 @@ interface CreativeState {
   addressOverride: string;
   // Step 4+
   formato: string;
+  orientacoes: string;
 }
 
 interface VariationResult {
@@ -230,6 +231,7 @@ export default function CriarPage() {
     showAddress: false,
     addressOverride: "",
     formato: "1080x1080",
+    orientacoes: "",
   });
 
   const seloInputRef = useRef<HTMLInputElement>(null);
@@ -369,6 +371,7 @@ export default function CriarPage() {
       storeAddress: state.showAddress ? (state.addressOverride || cliente?.address || undefined) : undefined,
       clientId: state.clienteId || undefined,
       styleVariation,
+      adjustmentPrompt: state.orientacoes?.trim() || undefined,
     };
 
     const fd = new FormData();
@@ -1703,6 +1706,28 @@ export default function CriarPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-orange-500" />
+                    Orientações para a IA <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </Label>
+                  <Textarea
+                    value={state.orientacoes}
+                    onChange={(e) => update({ orientacoes: e.target.value })}
+                    placeholder="Ex: destaque o 70% OFF, produto à esquerda, tom mais agressivo, adicione fita amarela de obra, use vermelho vibrante..."
+                    className="min-h-[80px] resize-none text-sm"
+                    maxLength={500}
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Dica: use pra garantir que cada criativo saia único. As instruções entram junto com o prompt mestre e sobrescrevem layout/composição (mas preservam produto, preço e CTA).
+                  </p>
+                  {state.orientacoes && (
+                    <p className="text-[11px] text-right text-muted-foreground">
+                      {state.orientacoes.length}/500
+                    </p>
+                  )}
                 </div>
 
                 <Button
