@@ -191,5 +191,39 @@ export const LEGACY_STYLE_VARIATION_MAP: Record<number, number> = {
   3: 6, // Modern Black & Gold
 };
 
+/**
+ * STYLE WAVES — agrupamento dos 9 styles em 3 ondas de 3 estilos cada.
+ *
+ * O usuário clica "Gerar 3 estilos" para disparar a Wave 1 (styles visualmente
+ * mais impactantes), e pode clicar "Gerar mais 3 estilos" para disparar a
+ * Wave 2 e depois a Wave 3. No final, todos os 9 styles ficam acumulados na
+ * tela lado a lado para o usuário escolher qual usar como referência no lote.
+ *
+ * Cada wave cobre vibes distintas entre si:
+ *   Wave 1: [Industrial, Sazonal Festivo, Black & Gold] — hard-sell + festivo + premium moderno
+ *   Wave 2: [Premium BR, Liquidação, Friendly Daily]    — premium varejo + tabloide + friendly
+ *   Wave 3: [Split Hot, Feminine, Sunset]                — sazonais respirados
+ *
+ * As 3 waves juntas cobrem todo o espectro de estilos sem repetição.
+ */
+export const STYLE_WAVES: number[][] = [
+  [1, 2, 6], // Wave 1: Industrial Hard-Sale · Sazonal Festivo 3D · Modern Black & Gold
+  [3, 4, 5], // Wave 2: Premium Comercial BR · Liquidação Gritante · Friendly Daily Deal
+  [7, 8, 9], // Wave 3: Sazonal Split Hot · Soft Feminine Promo · Warm Sunset Sazonal
+];
+
+/** Nome curto pra exibir no badge do card de cada variação gerada */
+export const STYLE_SHORT_NAMES: Record<number, string> = {
+  1: "Industrial",
+  2: "Festivo 3D",
+  3: "Premium BR",
+  4: "Liquidação",
+  5: "Friendly",
+  6: "Black & Gold",
+  7: "Split Hot",
+  8: "Feminine",
+  9: "Sunset",
+};
+
 /** Lista ordenada de styles pra exibição em UI (grid, dropdown, etc.) */
 export const STYLE_FAMILIES_LIST: StyleFamily[] = Object.values(STYLE_FAMILIES);

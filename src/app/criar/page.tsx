@@ -49,6 +49,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { TIPOS_PRECO, UNIDADES, FORMAS_PAGAMENTO, FORMATOS_EXPORTACAO, CATEGORIAS_MATCON, CATEGORIAS } from "@/lib/constants";
+import { STYLE_WAVES, STYLE_SHORT_NAMES } from "@/lib/style-families";
 
 // -- Types for fetched data ---------------------------------------------------
 
@@ -254,11 +255,13 @@ export default function CriarPage() {
   const [produtoSearch, setProdutoSearch] = useState("");
   const [ctaCustom, setCtaCustom] = useState(false);
 
-  // Step 4: 3 variações
+  // Step 4: 3 variações por wave (até 9 acumuladas)
   const [variations, setVariations] = useState<VariationResult[]>([]);
   const [gerandoVariacoes, setGerandoVariacoes] = useState(false);
   const [variacaoProgresso, setVariacaoProgresso] = useState(0);
   const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
+  // Quantas waves foram geradas até agora (0 = nenhuma, 1 = wave 1 feita, 2 = waves 1+2, 3 = todas)
+  const [currentWave, setCurrentWave] = useState(0);
 
   // Step 5: Geração em lote
   const [batchProducts, setBatchProducts] = useState<BatchProduct[]>([]);
@@ -348,7 +351,7 @@ export default function CriarPage() {
     priceType: string,
     unitVal: string,
     conditionVal: string,
-    styleVariation?: number,
+    styleFamily?: number,   // ID do style family (1-9) — opcional pro lote que usa referenceBlob
     referenceBlob?: Blob | null,
   ): Promise<{ blob: Blob; url: string; creativeId: string | null }> => {
     const bodyData = {
@@ -370,7 +373,7 @@ export default function CriarPage() {
       phone: state.showPhone ? (state.phoneOverride || cliente?.phone || undefined) : undefined,
       storeAddress: state.showAddress ? (state.addressOverride || cliente?.address || undefined) : undefined,
       clientId: state.clienteId || undefined,
-      styleVariation,
+      styleFamily,
       adjustmentPrompt: state.orientacoes?.trim() || undefined,
     };
 
@@ -498,18 +501,27 @@ export default function CriarPage() {
     }
   };
 
-  // Step 4: Gerar 3 variações de estilo
-  const handleGerarVariacoes = async () => {
+  // Step 4: Gerar 3 variações de estilo por wave
+  // waveIndex: 0 = primeira wave (reseta tudo), 1+ = waves subsequentes (acumulam)
+  const handleGerarVariacoes = async (waveIndex: number = 0) => {
+    if (waveIndex >= STYLE_WAVES.length) return;
+
     setGerandoVariacoes(true);
-    setVariations([]);
-    setSelectedVariation(null);
     setVariacaoProgresso(0);
 
-    const results: VariationResult[] = [];
+    // Wave 0 reseta tudo; waves subsequentes acumulam
+    if (waveIndex === 0) {
+      setVariations([]);
+      setSelectedVariation(null);
+    }
 
-    for (let v = 1; v <= 3; v++) {
+    const wave = STYLE_WAVES[waveIndex];
+    const accumulated: VariationResult[] = waveIndex === 0 ? [] : [...variations];
+
+    for (let i = 0; i < wave.length; i++) {
+      const styleFamily = wave[i];
       try {
-        setVariacaoProgresso(v);
+        setVariacaoProgresso(i + 1);
         const { blob, url, creativeId } = await generateSingleCreative(
           state.produtoNome,
           state.produtoSpec,
@@ -519,20 +531,23 @@ export default function CriarPage() {
           state.tipoPreco,
           state.unidade,
           state.condicao,
-          v,
+          styleFamily,
         );
-        results.push({ url, blob, variation: v, creativeId });
-        setVariations([...results]);
+        accumulated.push({ url, blob, variation: styleFamily, creativeId });
+        setVariations([...accumulated]);
         // Verificar texto automaticamente
         const expectedTexts = [state.produtoNome, state.preco, state.promocaoNome].filter(Boolean);
-        verifyCreativeText(blob, `var-${v}`, expectedTexts);
+        verifyCreativeText(blob, `var-${styleFamily}`, expectedTexts);
       } catch (err) {
-        toast.error(`Erro na variação ${v}: ${err instanceof Error ? err.message : "erro"}`);
+        toast.error(`Erro em "${STYLE_SHORT_NAMES[styleFamily]}": ${err instanceof Error ? err.message : "erro"}`);
       }
     }
 
-    if (results.length > 0) {
-      toast.success(`${results.length} variação(ões) gerada(s)!`);
+    setCurrentWave(waveIndex + 1);
+    const totalNow = accumulated.length;
+    if (totalNow > 0) {
+      const waveLabel = waveIndex === 0 ? "primeiros" : waveIndex === 1 ? "próximos" : "últimos";
+      toast.success(`${wave.length} estilos ${waveLabel} gerados! (${totalNow}/9 no total)`);
     }
     setGerandoVariacoes(false);
   };
@@ -1730,20 +1745,21 @@ export default function CriarPage() {
                   )}
                 </div>
 
+                {/* Botão primário: Wave 1 (sempre reseta) */}
                 <Button
                   className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 btn-micro"
-                  onClick={handleGerarVariacoes}
+                  onClick={() => handleGerarVariacoes(0)}
                   disabled={gerandoVariacoes}
                 >
-                  {gerandoVariacoes ? (
+                  {gerandoVariacoes && currentWave === 0 ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Gerando variação {variacaoProgresso}/3...
+                      Gerando {variacaoProgresso}/3...
                     </>
                   ) : variations.length > 0 ? (
                     <>
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Gerar novamente (3 estilos)
+                      Regerar do início (limpa tudo)
                     </>
                   ) : (
                     <>
@@ -1752,6 +1768,41 @@ export default function CriarPage() {
                     </>
                   )}
                 </Button>
+
+                {/* Botão secundário: Waves 2 e 3 (acumulam) */}
+                {currentWave > 0 && currentWave < STYLE_WAVES.length && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 border-orange-500/40 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400 btn-micro"
+                    onClick={() => handleGerarVariacoes(currentWave)}
+                    disabled={gerandoVariacoes}
+                  >
+                    {gerandoVariacoes && currentWave > 0 ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Gerando {variacaoProgresso}/3...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Gerar mais 3 estilos ({variations.length}/9 gerados)
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {/* Banner: tokens já consumidos */}
+                {variations.length > 0 && !gerandoVariacoes && (
+                  <div className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/5 p-2.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      <span className="font-medium text-foreground">{variations.length} de 9 estilos</span> já gerados.
+                      {currentWave >= STYLE_WAVES.length
+                        ? " Todos os 9 estilos disponíveis já estão na tela — escolha um pra seguir."
+                        : " Cada geração consome tokens do gpt-image-1.5 — gere apenas se precisar mais opções."}
+                    </p>
+                  </div>
+                )}
 
                 {/* Progresso */}
                 {gerandoVariacoes && (
@@ -1763,7 +1814,7 @@ export default function CriarPage() {
                   </div>
                 )}
 
-                {/* Grid de 3 variações */}
+                {/* Grid de variações (cresce de 3 → 6 → 9) */}
                 {variations.length > 0 && (
                   <>
                     <p className="text-sm text-muted-foreground">
@@ -1783,7 +1834,7 @@ export default function CriarPage() {
                         >
                           <img
                             src={v.url}
-                            alt={`Estilo ${v.variation}`}
+                            alt={STYLE_SHORT_NAMES[v.variation] || `Estilo ${v.variation}`}
                             className="w-full aspect-square object-cover"
                           />
                           {selectedVariation === v.variation && (
@@ -1791,15 +1842,17 @@ export default function CriarPage() {
                               <Check className="h-3.5 w-3.5" />
                             </div>
                           )}
-                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                            <span className="text-white text-xs font-medium">Estilo {v.variation}</span>
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <span className="text-white text-[11px] font-medium truncate block">
+                              {STYLE_SHORT_NAMES[v.variation] || `Estilo ${v.variation}`}
+                            </span>
                           </div>
                         </button>
                       ))}
                     </div>
                     {selectedVariation && (
                       <p className="text-xs text-center text-orange-500 font-medium">
-                        Estilo {selectedVariation} selecionado como referência
+                        {STYLE_SHORT_NAMES[selectedVariation] || `Estilo ${selectedVariation}`} selecionado como referência
                       </p>
                     )}
                   </>
