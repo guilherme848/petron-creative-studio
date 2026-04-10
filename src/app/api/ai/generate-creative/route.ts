@@ -6,6 +6,9 @@ import {
   formatPriceBlock,
   formatValidityBlock,
 } from "@/lib/build-master-prompt";
+import { getAuthUserOrNull } from "@/lib/auth";
+import { logUsageEvent } from "@/lib/tracking";
+import { estimateImageCost } from "@/lib/pricing";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +26,9 @@ export async function POST(request: Request) {
       { status: 429 }
     );
   }
+
+  const startMs = Date.now();
+  const authUser = await getAuthUserOrNull();
 
   try {
     const formData = await request.formData();
@@ -208,6 +214,42 @@ export async function POST(request: Request) {
       creativeId = creativeRow?.id || null;
     }
 
+    // ─── Track usage event (fire-and-forget, nunca bloqueia a resposta) ──
+    if (authUser) {
+      // Classifica o tipo do evento:
+      //   - adjust_creative: quando há referenceImage (usuário está ajustando)
+      //   - generate_batch_item: quando está no modo batch (lote step 5)
+      //   - generate_single: default (wave do step 4)
+      let eventType: "generate_single" | "generate_batch_item" | "adjust_creative" = "generate_single";
+      if (adjustmentPrompt && referenceImageFile) {
+        eventType = "adjust_creative";
+      } else if (batchMode) {
+        eventType = "generate_batch_item";
+      }
+
+      await logUsageEvent({
+        userId: authUser.localUserId,
+        eventType,
+        clientId: clientId || null,
+        creativeId,
+        styleFamily: styleFamily ?? styleVariation ?? null,
+        typographyFamily: typographyFamily ?? null,
+        waveIndex: typeof styleVariation === "number" ? styleVariation - 1 : null,
+        batchMode: !!batchMode,
+        model: "gpt-image-1.5",
+        costUsd: estimateImageCost(hasInputImages),
+        durationMs: Date.now() - startMs,
+        outcome: "success",
+        metadata: {
+          productName,
+          promotionName,
+          hasLogo: !!logoFile,
+          hasProductImage: !!productImageFile,
+          hasReference: !!referenceImageFile,
+        },
+      });
+    }
+
     return new NextResponse(new Uint8Array(imageBuffer), {
       status: 200,
       headers: {
@@ -220,6 +262,20 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro interno";
     console.error("Generate creative error:", message);
+
+    // Track erro também
+    if (authUser) {
+      await logUsageEvent({
+        userId: authUser.localUserId,
+        eventType: "generate_single",
+        model: "gpt-image-1.5",
+        costUsd: 0,
+        durationMs: Date.now() - startMs,
+        outcome: "error",
+        errorMessage: message,
+      });
+    }
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

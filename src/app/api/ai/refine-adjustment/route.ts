@@ -17,6 +17,9 @@
 
 import { NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getAuthUserOrNull } from "@/lib/auth";
+import { logUsageEvent } from "@/lib/tracking";
+import { estimate4oMiniCost } from "@/lib/pricing";
 
 const REFINE_SYSTEM_PROMPT = `You are a senior creative director at a Brazilian retail advertising agency specializing in home improvement store (materiais de construção) promotional creatives. The user has generated a creative image using gpt-image-1.5 and wants to make specific visual adjustments to it via a second generation pass.
 
@@ -45,6 +48,9 @@ export async function POST(request: Request) {
       { status: 429 }
     );
   }
+
+  const startMs = Date.now();
+  const authUser = await getAuthUserOrNull();
 
   try {
     const { rawPrompt, productName, promotionName } = await request.json();
@@ -87,6 +93,21 @@ Refine esse pedido num prompt estruturado e detalhado seguindo as regras do sist
     if (!res.ok) {
       const errText = await res.text();
       console.error("OpenAI refine error:", errText.substring(0, 500));
+
+      // Tracking: falha de refinement (fallback)
+      if (authUser) {
+        await logUsageEvent({
+          userId: authUser.localUserId,
+          eventType: "refine_prompt",
+          model: "gpt-4o-mini",
+          costUsd: 0,
+          durationMs: Date.now() - startMs,
+          outcome: "fallback",
+          errorMessage: "OpenAI refine returned non-200",
+          metadata: { rawPromptLength: rawPrompt.length },
+        });
+      }
+
       // Fallback: retorna o prompt cru sem refinar pra não bloquear o usuário
       return NextResponse.json({
         refinedPrompt: rawPrompt.trim(),
@@ -97,16 +118,49 @@ Refine esse pedido num prompt estruturado e detalhado seguindo as regras do sist
 
     const data = await res.json();
     const refinedPrompt = data.choices?.[0]?.message?.content?.trim() || rawPrompt.trim();
+    const tokensInput: number = data.usage?.prompt_tokens ?? 0;
+    const tokensOutput: number = data.usage?.completion_tokens ?? 0;
+
+    // Tracking: refinement bem-sucedido
+    if (authUser) {
+      await logUsageEvent({
+        userId: authUser.localUserId,
+        eventType: "refine_prompt",
+        model: "gpt-4o-mini",
+        tokensInput,
+        tokensOutput,
+        costUsd: estimate4oMiniCost(tokensInput, tokensOutput),
+        durationMs: Date.now() - startMs,
+        outcome: "success",
+        metadata: {
+          rawPromptLength: rawPrompt.length,
+          refinedPromptLength: refinedPrompt.length,
+          productName: productName || null,
+          promotionName: promotionName || null,
+        },
+      });
+    }
 
     return NextResponse.json({
       refinedPrompt,
       wasRefined: refinedPrompt !== rawPrompt.trim(),
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao refinar prompt";
     console.error("Refine adjustment error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erro ao refinar prompt" },
-      { status: 500 }
-    );
+
+    if (authUser) {
+      await logUsageEvent({
+        userId: authUser.localUserId,
+        eventType: "refine_prompt",
+        model: "gpt-4o-mini",
+        costUsd: 0,
+        durationMs: Date.now() - startMs,
+        outcome: "error",
+        errorMessage: message,
+      });
+    }
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
