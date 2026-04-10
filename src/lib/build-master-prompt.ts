@@ -105,6 +105,10 @@ export function buildMasterPrompt(input: BriefingInput): string {
     ? `Sub-label text reads: "${input.productSpec}". Smaller, supporting role.`
     : "";
 
+  const productImageInstruction = input.hasProductImage
+    ? `CRITICAL — PRODUCT PHOTOGRAPH FROM INPUT: A real product photograph is provided as an input image. Use it EXACTLY as provided. Do NOT redraw, do NOT reinterpret, do NOT stylize, do NOT change the packaging, label, or colors. The product in the final creative must be visually IDENTICAL to the uploaded photo — the exact same brand, label text, packaging design, proportions, and colors. Only composite it into the scene: size it at 30-45% of the canvas area, add a realistic drop shadow to ground it on the background, and position it per the layout rules. Preserve every visual detail of the original product photograph. This is non-negotiable — the uploaded product image is authoritative.`
+    : `PRODUCT RENDERING: Generate the product with the aesthetic of a real catalog or PDV photograph — sharp focus, realistic lighting, natural drop shadow, authentic packaging with readable labels. Never a 3D render, never plastic-looking, never AI-styled.`;
+
   const phoneBlock = input.phone
     ? `Below the button, render the WhatsApp icon and the phone number "${input.phone}" in white bold.`
     : "";
@@ -118,7 +122,7 @@ export function buildMasterPrompt(input: BriefingInput): string {
     : `Disclaimer text reads: "*IMAGEM MERAMENTE ILUSTRATIVA".`;
 
   const logoInstruction = input.hasLogo
-    ? `The store logo is provided as a separate input image. Place it in the upper-right corner at small-to-medium size. Use it EXACTLY as provided — never modify, recolor, distort, or redraw it. Render this logo ONCE only.`
+    ? `CRITICAL — STORE LOGO FROM INPUT: The store logo is provided as a separate input image. Use it EXACTLY as provided — never modify, recolor, distort, redraw, or stylize it. Place it in the upper-right corner of the canvas at small-to-medium size with clean margins. Render this logo ONCE only — do NOT duplicate it anywhere else in the composition.`
     : `Generate a small professional emblem-style badge for the store "${input.clientName}" — render this brand emblem ONCE only, in the upper-right corner. Do NOT duplicate the logo anywhere else.`;
 
   const adjustmentBlock = input.adjustmentPrompt
@@ -130,6 +134,7 @@ export function buildMasterPrompt(input: BriefingInput): string {
     PROMOTION_NAME: input.promotionName || "OFERTA ESPECIAL",
     PRODUCT_NAME: input.productName,
     PRODUCT_SPEC_BLOCK: productSpecBlock,
+    PRODUCT_IMAGE_INSTRUCTION: productImageInstruction,
     PRICE_BLOCK: input.priceBlock,
     CTA_TEXT: input.ctaText,
     PHONE_BLOCK: phoneBlock,

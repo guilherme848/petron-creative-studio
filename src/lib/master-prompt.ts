@@ -34,6 +34,7 @@ Render as a large 3D promotional seal with extruded letters, metallic finish, re
 PRODUCT NAME — main product label:
 Text exactly reads: "{{PRODUCT_NAME}}"
 {{PRODUCT_SPEC_BLOCK}}
+{{PRODUCT_IMAGE_INSTRUCTION}}
 {{TYPOGRAPHY_BODY_BLOCK}}
 
 PRICE BLOCK — largest commercial element after the seal:
@@ -99,6 +100,7 @@ ANTI-AI CHECKS — CRITICAL (the image must NOT look AI-generated)
 ═══════════════════════════════════════════════════════════
 
 DO NOT render any of the following:
+- Replace, redraw, restyle, or reinterpret the uploaded product photograph when one is provided. If a product image is given as input, use it EXACTLY as provided — only composite it into the scene, never regenerate it.
 - Plastic-looking or 3D-rendered product (use real photo aesthetic only)
 - Letters with wrong shape, missing accents, or English fragments
 - "$" symbol anywhere visible. Only "R$" for currency

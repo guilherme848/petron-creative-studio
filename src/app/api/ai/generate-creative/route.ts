@@ -105,25 +105,62 @@ export async function POST(request: Request) {
 
     // Decidir modelo: variações 1 e 2 → gpt-image-1.5, variação 3 → Gemini
     const useOpenAI = (styleVariation === 1 || styleVariation === 2) && openaiKey;
+    const hasInputImages = !!(logoFile || productImageFile || referenceImageFile);
 
     let imageBuffer: Buffer | null = null;
 
     if (useOpenAI) {
-      // ─── OpenAI gpt-image-1.5 (Images API) ────────────────────────
+      // ─── OpenAI gpt-image-1.5 ────────────────────────────────────
+      // Quando há imagens reais (logo/produto/referência), usa o endpoint
+      // /v1/images/edits com multipart — ele aceita múltiplas imagens via image[]
+      // e usa elas como input visual real (logo e foto do produto preservados).
+      //
+      // Quando não há imagens, usa /v1/images/generations (text-to-image puro).
       try {
-        const openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openaiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-image-1.5",
-            prompt: prompt,
-            n: 1,
-            size: "1024x1024",
-          }),
-        });
+        let openaiRes: Response;
+
+        if (hasInputImages) {
+          const openaiForm = new FormData();
+          openaiForm.append("model", "gpt-image-1.5");
+          openaiForm.append("prompt", prompt);
+          openaiForm.append("n", "1");
+          openaiForm.append("size", "1024x1024");
+
+          // Ordem importa: produto primeiro (hero), depois logo, depois referência.
+          if (productImageFile) {
+            openaiForm.append("image[]", productImageFile, "product.png");
+          }
+          if (logoFile) {
+            openaiForm.append("image[]", logoFile, "logo.png");
+          }
+          if (referenceImageFile) {
+            openaiForm.append("image[]", referenceImageFile, "reference.png");
+          }
+
+          openaiRes = await fetch("https://api.openai.com/v1/images/edits", {
+            method: "POST",
+            headers: {
+              // NÃO setar Content-Type — fetch com FormData define automaticamente
+              // o boundary correto do multipart.
+              "Authorization": `Bearer ${openaiKey}`,
+            },
+            body: openaiForm,
+          });
+        } else {
+          openaiRes = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-image-1.5",
+              prompt: prompt,
+              n: 1,
+              size: "1024x1024",
+            }),
+          });
+        }
 
         if (openaiRes.ok) {
           const data = await openaiRes.json();
