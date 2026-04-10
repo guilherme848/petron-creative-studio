@@ -139,3 +139,77 @@ OUTPUT SPECIFICATION
 Single static image. Aspect ratio 1:1. Resolution 1080x1080 pixels. Color space sRGB. Sharp, polished, commercial-grade, ready for Meta Ads (Instagram and Facebook feed). Indistinguishable from a creative made by a Brazilian retail design agency. The piece transmits: confidence, urgency, opportunity, real value, and commercial credibility.
 
 (seed: {{RANDOM_SEED}})`;
+
+/**
+ * BATCH MODE PROMPT — usado na geração em lote (step 5) quando o objetivo é
+ * clonar uma referência visual EXATAMENTE, substituindo apenas produto/preço/nome.
+ *
+ * Diferente do MASTER_PROMPT_TEMPLATE, este é curto e focado em PRESERVAÇÃO
+ * total da base visual. O modelo recebe 2 imagens via /v1/images/edits:
+ *   1. A referência visual (criativo aprovado do step 4)
+ *   2. A nova foto do produto a ser substituída
+ *
+ * O modelo NÃO deve redesenhar, não deve variar estilo, não deve reinterpretar
+ * layout. É substituição de conteúdo cirúrgica — content swap, não redesign.
+ */
+export const BATCH_MODE_PROMPT_TEMPLATE = `BATCH REGENERATION TASK — CONTENT SWAP ONLY (NOT REDESIGN).
+
+You are given two input images:
+1. REFERENCE IMAGE (first): an existing promotional creative for a Brazilian home improvement retailer that has been approved by the user. This creative defines the EXACT visual base that must be preserved.
+2. NEW PRODUCT PHOTO (second): the new product that must replace the product in the reference image.
+
+═══════════════════════════════════════════════════════════
+YOUR JOB — SURGICAL CONTENT REPLACEMENT
+═══════════════════════════════════════════════════════════
+
+Reproduce the reference image EXACTLY, changing ONLY the following specific content fields:
+
+1. PRODUCT PHOTOGRAPH: replace with the new product photo provided as input image #2. Use it EXACTLY as provided (never redraw, never stylize, never reinterpret). Size and position the new product to match the exact same scale, position, and drop shadow as the product in the reference image.
+
+2. PRODUCT NAME TEXT: replace with "{{PRODUCT_NAME}}"
+{{PRODUCT_SPEC_REPLACEMENT}}
+
+3. PRICE BLOCK: replace with the new price content below, but keep the EXACT same visual treatment (same color, same shape, same size, same position, same typography style) as the price block in the reference image:
+{{PRICE_BLOCK}}
+
+═══════════════════════════════════════════════════════════
+PRESERVE EXACTLY — DO NOT CHANGE
+═══════════════════════════════════════════════════════════
+
+You MUST preserve these elements from the reference image without ANY modification:
+- Overall layout and composition
+- Background color, gradient, and texture
+- Campaign seal ("{{PROMOTION_NAME}}") — same text, same 3D treatment, same position, same size
+- WhatsApp CTA button — same green color, same text, same position, same size
+- Store logo — same logo, same position, same size (upper-right corner)
+- Store name "{{CLIENT_NAME}}" and footer information
+- Address, phone, validity disclaimer — all text and positioning identical
+- Decorative elements (hazard tape, coins, hearts, sparkles, etc.) — EXACT same placement
+- Typography family (fonts, weights, colors for seal/body/price)
+- Color palette and saturation levels
+- Lighting, shadows, and mood
+- Every pixel that is NOT specifically listed in the REPLACEMENT section above
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════════════════════════
+
+- This is a CONTENT SWAP, not a redesign. Treat the reference image as a master template.
+- The new creative must be visually indistinguishable from the reference EXCEPT for the 3 replacement fields listed above.
+- Do NOT restyle, do NOT reinterpret, do NOT "improve" the design.
+- Do NOT change the campaign seal text, colors, or treatment.
+- Do NOT move elements around. Positions are fixed.
+- Do NOT change the background.
+- Do NOT change the CTA button.
+- The new product photo (input image #2) must appear in the same position and same scale as the product in the reference image.
+- Price format: "R$" symbol, comma decimal, superscript cents. Example: "R$ 159,90". NEVER "$", NEVER period as decimal.
+- All text in Brazilian Portuguese, no English fragments, no broken characters.
+- No mascots, cartoon characters, human figures, or anthropomorphic elements anywhere.
+
+═══════════════════════════════════════════════════════════
+OUTPUT
+═══════════════════════════════════════════════════════════
+
+Single static image. 1080x1080 pixels. Sharp, polished, visually IDENTICAL to the reference except for the replaced product, product name, product spec, and price. Pixel-level fidelity to the reference base.
+
+(seed: {{RANDOM_SEED}})`;

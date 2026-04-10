@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       styleFamily,
       typographyFamily,
       adjustmentPrompt,
+      batchMode,
     } = JSON.parse(dataRaw);
 
     const openaiKey = process.env.OPENAI_API_KEY;
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
       hasLogo: !!logoFile,
       hasProductImage: !!productImageFile,
       adjustmentPrompt,
+      batchMode: !!batchMode,
     });
 
     const hasInputImages = !!(logoFile || productImageFile || referenceImageFile);

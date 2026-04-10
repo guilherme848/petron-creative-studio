@@ -15,7 +15,7 @@
  *   5. Retorna string pronta pra API de imagem
  */
 
-import { MASTER_PROMPT_TEMPLATE } from "./master-prompt";
+import { MASTER_PROMPT_TEMPLATE, BATCH_MODE_PROMPT_TEMPLATE } from "./master-prompt";
 import {
   STYLE_FAMILIES,
   DEFAULT_STYLE_ID,
@@ -70,6 +70,13 @@ export interface BriefingInput {
   hasProductImage: boolean;
   /** Prompt livre de ajuste feito pelo usuário (quando refinando criativo) */
   adjustmentPrompt?: string;
+  /**
+   * Modo batch: quando true, ignora master prompt normal e usa um template
+   * específico focado em CONTENT SWAP cirúrgico — clona a referência visual
+   * exatamente, substituindo apenas produto/preço/nome/spec. Usado no
+   * step 5 (geração em lote) onde há sempre uma referenceImage.
+   */
+  batchMode?: boolean;
 }
 
 /**
@@ -77,6 +84,11 @@ export interface BriefingInput {
  * Função pura — mesma entrada sempre produz a mesma saída (exceto pelo seed).
  */
 export function buildMasterPrompt(input: BriefingInput): string {
+  // ─── BATCH MODE: usa template cirúrgico de content swap ──────────────
+  if (input.batchMode) {
+    return buildBatchPrompt(input);
+  }
+
   // ─── 1. Resolver style family ──────────────────────────────────────────
   const resolvedStyleId =
     input.styleFamily ??
@@ -174,6 +186,43 @@ Apply these instructions while preserving:
     prompt = prompt.replaceAll(`{{${key}}}`, value);
   }
 
+  return prompt;
+}
+
+/**
+ * Compila o prompt BATCH MODE — usado na geração em lote (step 5).
+ * Template cirúrgico focado em CONTENT SWAP, não em redesign.
+ *
+ * Preserva pixel a pixel a imagem de referência e substitui APENAS:
+ *   - Foto do produto (via input image #2 no multipart)
+ *   - Nome do produto (texto)
+ *   - Spec do produto (texto)
+ *   - Bloco de preço (texto, mas mantendo o visual treatment da referência)
+ *
+ * Outros campos (promoção, cliente, endereço) são usados APENAS para
+ * referência contextual — eles NÃO devem mudar visualmente se já estavam
+ * na referência.
+ */
+function buildBatchPrompt(input: BriefingInput): string {
+  const seed = Math.floor(Math.random() * 99999);
+
+  const productSpecReplacement = input.productSpec
+    ? `2b. PRODUCT SPEC TEXT: replace with "${input.productSpec}" in the same position and style as the reference.`
+    : "";
+
+  const slots: Record<string, string> = {
+    PRODUCT_NAME: input.productName,
+    PRODUCT_SPEC_REPLACEMENT: productSpecReplacement,
+    PRICE_BLOCK: input.priceBlock,
+    PROMOTION_NAME: input.promotionName || "OFERTA ESPECIAL",
+    CLIENT_NAME: input.clientName,
+    RANDOM_SEED: String(seed),
+  };
+
+  let prompt = BATCH_MODE_PROMPT_TEMPLATE;
+  for (const [key, value] of Object.entries(slots)) {
+    prompt = prompt.replaceAll(`{{${key}}}`, value);
+  }
   return prompt;
 }
 

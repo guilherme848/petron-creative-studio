@@ -270,6 +270,18 @@ export default function CriarPage() {
   const [loteProgresso, setLoteProgresso] = useState(0);
   const [loteTotalItens, setLoteTotalItens] = useState(0);
 
+  // Cadastro ad-hoc de produto no step 5 (sem precisar persistir no banco)
+  const [showAdHocForm, setShowAdHocForm] = useState(false);
+  const [adHocName, setAdHocName] = useState("");
+  const [adHocSpec, setAdHocSpec] = useState("");
+  const [adHocPrice, setAdHocPrice] = useState("");
+  const [adHocPreviousPrice, setAdHocPreviousPrice] = useState("");
+  const [adHocPriceType, setAdHocPriceType] = useState("a-partir-de");
+  const [adHocUnit, setAdHocUnit] = useState("UN");
+  const [adHocCondition, setAdHocCondition] = useState("À vista");
+  const [adHocImageFile, setAdHocImageFile] = useState<File | null>(null);
+  const [adHocImageUrl, setAdHocImageUrl] = useState<string | null>(null);
+
   // Verificação de texto e ajustes
   const [verifications, setVerifications] = useState<Map<string, { nota: number; erros: { esperado: string; encontrado: string; tipo: string }[] }>>(new Map());
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
@@ -353,6 +365,7 @@ export default function CriarPage() {
     conditionVal: string,
     styleFamily?: number,   // ID do style family (1-9) — opcional pro lote que usa referenceBlob
     referenceBlob?: Blob | null,
+    batchMode?: boolean,    // quando true, usa prompt cirúrgico de content swap
   ): Promise<{ blob: Blob; url: string; creativeId: string | null }> => {
     const bodyData = {
       clientName: cliente?.nome || "Loja",
@@ -375,6 +388,7 @@ export default function CriarPage() {
       clientId: state.clienteId || undefined,
       styleFamily,
       adjustmentPrompt: state.orientacoes?.trim() || undefined,
+      batchMode: batchMode || undefined,
     };
 
     const fd = new FormData();
@@ -429,6 +443,8 @@ export default function CriarPage() {
   };
 
   // Ajustar criativo individual com prompt do usuário
+  // O texto cru do usuário passa primeiro por /api/ai/refine-adjustment
+  // (gpt-4o-mini) pra virar um prompt estruturado antes de regerar a imagem.
   const handleAdjustCreative = async (
     originalBlob: Blob,
     productName: string,
@@ -440,6 +456,31 @@ export default function CriarPage() {
     setAdjustingLoading(true);
 
     try {
+      // ─── Refinar o prompt de ajuste via gpt-4o-mini ──────────────
+      let refinedPrompt = adjustPrompt.trim();
+      try {
+        const refineRes = await fetch("/api/ai/refine-adjustment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rawPrompt: adjustPrompt.trim(),
+            productName,
+            promotionName: state.promocaoNome,
+          }),
+        });
+        if (refineRes.ok) {
+          const { refinedPrompt: refined, wasRefined } = await refineRes.json();
+          if (refined) {
+            refinedPrompt = refined;
+            if (wasRefined) {
+              toast.info("Prompt refinado pelo arquiteto de prompts", { duration: 2000 });
+            }
+          }
+        }
+      } catch {
+        // Se o refine falhar, usa o texto cru (fallback silencioso)
+      }
+
       const fd = new FormData();
       fd.append("referenceImage", originalBlob, "original.png");
 
@@ -454,7 +495,7 @@ export default function CriarPage() {
         phone: state.showPhone ? (state.phoneOverride || cliente?.phone || undefined) : undefined,
         storeAddress: state.showAddress ? (state.addressOverride || cliente?.address || undefined) : undefined,
         clientId: state.clienteId || undefined,
-        adjustmentPrompt: adjustPrompt,
+        adjustmentPrompt: refinedPrompt,
       };
 
       fd.append("data", JSON.stringify(bodyData));
@@ -554,6 +595,38 @@ export default function CriarPage() {
     toast.info("Estilos gerados foram limpos");
   };
 
+  // Adicionar produto ad-hoc ao batch sem persistir no banco
+  const handleAddAdHocProduct = () => {
+    if (!adHocName.trim() || !adHocPrice.trim()) {
+      toast.error("Nome e preço são obrigatórios");
+      return;
+    }
+    const newProduct: BatchProduct = {
+      id: `adhoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: adHocName.trim(),
+      spec: adHocSpec.trim(),
+      imageUrl: adHocImageUrl,
+      price: adHocPrice.trim(),
+      previousPrice: adHocPreviousPrice.trim(),
+      priceType: adHocPriceType,
+      unit: adHocUnit,
+      condition: adHocCondition,
+    };
+    setBatchProducts((prev) => [...prev, newProduct]);
+    // Reset do form
+    setAdHocName("");
+    setAdHocSpec("");
+    setAdHocPrice("");
+    setAdHocPreviousPrice("");
+    setAdHocPriceType("a-partir-de");
+    setAdHocUnit("UN");
+    setAdHocCondition("À vista");
+    setAdHocImageFile(null);
+    setAdHocImageUrl(null);
+    setShowAdHocForm(false);
+    toast.success(`"${newProduct.name}" adicionado ao lote`);
+  };
+
   // Step 5: Gerar em lote
   const handleGerarLote = async () => {
     if (batchProducts.length === 0 || selectedVariation === null) return;
@@ -596,6 +669,7 @@ export default function CriarPage() {
           product.condition,
           undefined,
           refVariation.blob,
+          true, // batchMode — força content swap cirúrgico com preservação total da referência
         );
 
         results.push({ product, url, blob, creativeId });
@@ -693,7 +767,9 @@ export default function CriarPage() {
     if (step === 1 && !state.clienteId) return false;
     if (step === 3 && !state.produtoNome.trim()) return false;
     if (step === 4 && selectedVariation === null) return false;
-    if (step === 5 && batchResults.length === 0 && !gerandoLote) return false;
+    // Step 5 (lote) é OPCIONAL — usuário pode avançar só com a variação escolhida
+    // no step 4, sem precisar gerar nenhum criativo em lote.
+    if (step === 5 && gerandoLote) return false;
     return true;
   };
 
@@ -1865,17 +1941,160 @@ export default function CriarPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Selecione os produtos para gerar criativos seguindo o estilo escolhido. Cada produto será gerado com o mesmo layout de referência.
+                  O lote é opcional. Selecione produtos cadastrados OU cadastre um produto avulso na hora. Cada produto gerado usará o estilo escolhido como base exata, trocando apenas produto/preço/nome.
                 </p>
 
-                {/* Seleção de produtos */}
+                {/* Botão cadastrar produto avulso */}
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdHocForm((v) => !v)}
+                    className="flex items-center gap-1.5 text-xs text-orange-500 hover:text-orange-400 font-medium"
+                  >
+                    <ImagePlus className="h-3.5 w-3.5" />
+                    {showAdHocForm ? "Cancelar cadastro avulso" : "+ Cadastrar produto avulso"}
+                  </button>
+                  <span className="text-xs text-muted-foreground">
+                    (não salva no banco)
+                  </span>
+                </div>
+
+                {/* Form ad-hoc inline */}
+                {showAdHocForm && (
+                  <div className="rounded-xl border border-orange-500/40 bg-orange-500/5 p-3 space-y-2.5">
+                    <p className="text-[11px] font-semibold text-orange-500 uppercase tracking-wider">
+                      Cadastrar produto avulso
+                    </p>
+
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-medium">Nome do produto *</label>
+                      <Input
+                        value={adHocName}
+                        onChange={(e) => setAdHocName(e.target.value)}
+                        placeholder="Ex: Cimento CPII 50kg"
+                        className="h-8 text-xs mt-0.5"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-medium">Descrição/spec</label>
+                      <Input
+                        value={adHocSpec}
+                        onChange={(e) => setAdHocSpec(e.target.value)}
+                        placeholder="Ex: Saco 50kg | Alta resistência"
+                        className="h-8 text-xs mt-0.5"
+                      />
+                    </div>
+
+                    <div className="grid gap-2 grid-cols-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Tipo preço</label>
+                        <Select value={adHocPriceType} onValueChange={(v) => setAdHocPriceType(v ?? "")}>
+                          <SelectTrigger className="h-8 text-xs mt-0.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIPOS_PRECO.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Preço *</label>
+                        <Input
+                          value={adHocPrice}
+                          onChange={(e) => setAdHocPrice(e.target.value)}
+                          placeholder="29,90"
+                          className="h-8 text-xs font-bold mt-0.5"
+                        />
+                      </div>
+                    </div>
+
+                    {adHocPriceType === "de-por" && (
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Preço anterior (De)</label>
+                        <Input
+                          value={adHocPreviousPrice}
+                          onChange={(e) => setAdHocPreviousPrice(e.target.value)}
+                          placeholder="49,90"
+                          className="h-8 text-xs mt-0.5"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid gap-2 grid-cols-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Unidade</label>
+                        <Select value={adHocUnit} onValueChange={(v) => setAdHocUnit(v ?? "")}>
+                          <SelectTrigger className="h-8 text-xs mt-0.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {UNIDADES.map((u) => (
+                              <SelectItem key={u} value={u}>{u}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground font-medium">Condição</label>
+                        <Select value={adHocCondition} onValueChange={(v) => setAdHocCondition(v ?? "")}>
+                          <SelectTrigger className="h-8 text-xs mt-0.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FORMAS_PAGAMENTO.map((f) => (
+                              <SelectItem key={f} value={f}>{f}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-medium">Foto do produto (opcional)</label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setAdHocImageFile(file);
+                            setAdHocImageUrl(URL.createObjectURL(file));
+                          }}
+                          className="text-[10px] file:mr-2 file:rounded file:border-0 file:bg-orange-500/10 file:px-2 file:py-1 file:text-[10px] file:text-orange-500 file:font-medium hover:file:bg-orange-500/20 file:cursor-pointer cursor-pointer"
+                        />
+                        {adHocImageUrl && (
+                          <div className="h-8 w-8 rounded border border-border/30 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={adHocImageUrl} alt="preview" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleAddAdHocProduct}
+                      className="w-full h-9 text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+                      disabled={!adHocName.trim() || !adHocPrice.trim()}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1.5" />
+                      Adicionar ao lote
+                    </Button>
+                  </div>
+                )}
+
+                {/* Seleção de produtos cadastrados */}
                 {loadingProdutos ? (
                   <div className="flex items-center justify-center py-6">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : produtosCliente.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    Nenhum produto cadastrado para este cliente.
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhum produto cadastrado para este cliente. Você pode cadastrar um avulso acima ou avançar sem gerar lote.
                   </p>
                 ) : (
                   <>
@@ -2325,7 +2544,9 @@ export default function CriarPage() {
                 onClick={() => setStep((s) => Math.min(6, s + 1))}
                 disabled={!canAdvance()}
               >
-                {step === 5 ? "Exportar" : "Próximo"}
+                {step === 5
+                  ? (batchResults.length > 0 ? "Exportar" : "Pular lote e exportar")
+                  : "Próximo"}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
