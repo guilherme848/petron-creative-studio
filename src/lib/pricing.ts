@@ -4,13 +4,13 @@
  * Estimativa de custo em USD das chamadas de API que o Creative Studio faz.
  *
  * ═══════════════════════════════════════════════════════════════
- * Preços oficiais OpenAI gpt-image-1.5 (março/2026)
+ * Preços oficiais OpenAI gpt-image-2 (abril/2026, lançado 21/04/2026)
  * ═══════════════════════════════════════════════════════════════
  *
  * Por imagem 1024x1024 (valores oficiais OpenAI):
- *   - Low quality:    $0.009 por imagem
- *   - Medium quality: $0.034 por imagem  ← default da API (quality "auto")
- *   - High quality:   $0.133 por imagem
+ *   - Low quality:    $0.006 por imagem
+ *   - Medium quality: $0.053 por imagem  ← default da API (quality "auto")
+ *   - High quality:   $0.211 por imagem
  *
  * Por tokens (cobrança alternativa):
  *   - Text input:        $5.00  / 1M tokens
@@ -18,15 +18,21 @@
  *   - Text output:       $10.00 / 1M tokens
  *   - Image input:       $8.00  / 1M tokens (usado em /v1/images/edits)
  *   - Image cached:      $2.00  / 1M tokens
- *   - Image output:      $32.00 / 1M tokens
+ *   - Image output:      $30.00 / 1M tokens
  *
  * Endpoint /v1/images/edits (multipart com input images):
  *   O route.ts envia product.png + logo.png + reference.png (até 3 inputs).
  *   Cada imagem de input pesa ~260 tokens a $8/1M = $0.0021 por input.
- *   Edit típico = medium ($0.034) + 2 inputs × $0.0021 = ~$0.038 por geração.
+ *   Edit típico = medium ($0.053) + 2 inputs × $0.0021 = ~$0.057 por geração.
  *
- * Observação: o route.ts atual não passa `quality` pro gpt-image-1.5,
+ * Observação: o route.ts atual não passa `quality` pro gpt-image-2,
  * então a OpenAI usa "auto" que equivale a medium na maioria dos casos.
+ *
+ * Mudança vs gpt-image-1.5:
+ *   - Medium subiu de $0.034 → $0.053 (+56%)
+ *   - High subiu de $0.133 → $0.211 (+59%)
+ *   - Low caiu de $0.009 → $0.006 (-33%)
+ *   → Se custo total importa, considere passar quality:"low" em drafts.
  *
  * Batch API: halves os token rates (não implementado aqui, mas vale lembrar
  * que operações assíncronas em massa podem cair ~50% no custo).
@@ -41,18 +47,18 @@
  * Override via env vars (ajuste sem redeploy)
  * ═══════════════════════════════════════════════════════════════
  *
- *   OPENAI_IMAGE_COST_USD        (default: 0.034 — medium 1024x1024)
- *   OPENAI_IMAGE_EDIT_COST_USD   (default: 0.038 — medium + ~2 inputs)
- *   OPENAI_IMAGE_LOW_USD         (default: 0.009)
- *   OPENAI_IMAGE_HIGH_USD        (default: 0.133)
+ *   OPENAI_IMAGE_COST_USD        (default: 0.053 — medium 1024x1024 image-2)
+ *   OPENAI_IMAGE_EDIT_COST_USD   (default: 0.057 — medium + ~2 inputs)
+ *   OPENAI_IMAGE_LOW_USD         (default: 0.006)
+ *   OPENAI_IMAGE_HIGH_USD        (default: 0.211)
  *   OPENAI_4O_MINI_INPUT_PER_1M  (default: 0.15)
  *   OPENAI_4O_MINI_OUTPUT_PER_1M (default: 0.60)
  *   BRL_PER_USD                  (default: 5.40)
  *
  * Fontes:
+ *   - https://developers.openai.com/api/docs/models/gpt-image-2
  *   - https://openai.com/api/pricing/
  *   - https://platform.openai.com/docs/pricing/
- *   - https://www.aifreeapi.com/en/posts/gpt-image-1-5-pricing
  */
 
 const num = (name: string, fallback: number): number => {
@@ -65,19 +71,19 @@ const num = (name: string, fallback: number): number => {
 export const PRICING = {
   /**
    * Preço de 1 imagem gerada via /v1/images/generations
-   * gpt-image-1.5 · 1024x1024 · quality "auto" (= medium)
-   * Valor oficial OpenAI: $0.034 por imagem
+   * gpt-image-2 · 1024x1024 · quality "auto" (= medium)
+   * Valor oficial OpenAI: $0.053 por imagem
    */
-  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.034),
+  imageGenerationUsd: num("OPENAI_IMAGE_COST_USD", 0.053),
   /**
    * Preço de 1 imagem via /v1/images/edits com inputs reais
-   * Base medium ($0.034) + ~2 input images ($0.004) ≈ $0.038
+   * Base medium ($0.053) + ~2 input images ($0.004) ≈ $0.057
    */
-  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.038),
-  /** gpt-image-1.5 · 1024x1024 · low quality */
-  imageLowUsd: num("OPENAI_IMAGE_LOW_USD", 0.009),
-  /** gpt-image-1.5 · 1024x1024 · high quality */
-  imageHighUsd: num("OPENAI_IMAGE_HIGH_USD", 0.133),
+  imageEditUsd: num("OPENAI_IMAGE_EDIT_COST_USD", 0.057),
+  /** gpt-image-2 · 1024x1024 · low quality */
+  imageLowUsd: num("OPENAI_IMAGE_LOW_USD", 0.006),
+  /** gpt-image-2 · 1024x1024 · high quality */
+  imageHighUsd: num("OPENAI_IMAGE_HIGH_USD", 0.211),
   /** gpt-4o-mini — USD / 1M input tokens */
   mini4oInputPerMillion: num("OPENAI_4O_MINI_INPUT_PER_1M", 0.15),
   /** gpt-4o-mini — USD / 1M output tokens */
@@ -93,7 +99,7 @@ export const PRICING = {
 export type ImageQuality = "low" | "medium" | "high";
 
 /**
- * Estima o custo em USD de 1 geração de imagem pelo gpt-image-1.5.
+ * Estima o custo em USD de 1 geração de imagem pelo gpt-image-2.
  *
  * @param hasInputImages — true quando a requisição usa /v1/images/edits
  *   com input images (produto, logo, referência). Nesse caso soma o custo

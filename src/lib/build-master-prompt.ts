@@ -1,11 +1,11 @@
 /**
  * PROMPT COMPILER — Petron Creative Studio
  *
- * Função única buildMasterPrompt() que compila o prompt final pro gpt-image-1.5
+ * Função única buildMasterPrompt() que compila o prompt final pro gpt-image-2
  * a partir de um BriefingInput (dados do form /criar + cadastro de cliente/produto).
  *
  * Fluxo:
- *   Briefing → buildMasterPrompt → String final → gpt-image-1.5 / Gemini fallback
+ *   Briefing → buildMasterPrompt → String final → gpt-image-2 / Gemini fallback
  *
  * Arquitetura:
  *   1. Seleciona STYLE_FAMILY e TYPOGRAPHY_FAMILY (com fallbacks)

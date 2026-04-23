@@ -3,7 +3,7 @@
  *
  * Endpoint que recebe um texto cru do usuário pedindo ajuste em um criativo
  * já gerado, e refina esse texto num prompt estruturado, detalhado e
- * diretamente injetável no master prompt do gpt-image-1.5.
+ * diretamente injetável no master prompt do gpt-image-2.
  *
  * Usa gpt-4o-mini (text) pra fazer o refinement — barato, rápido, preciso.
  *
@@ -21,9 +21,9 @@ import { getAuthUserOrNull } from "@/lib/auth";
 import { logUsageEvent } from "@/lib/tracking";
 import { estimate4oMiniCost } from "@/lib/pricing";
 
-const REFINE_SYSTEM_PROMPT = `You are a senior creative director at a Brazilian retail advertising agency specializing in home improvement store (materiais de construção) promotional creatives. The user has generated a creative image using gpt-image-1.5 and wants to make specific visual adjustments to it via a second generation pass.
+const REFINE_SYSTEM_PROMPT = `You are a senior creative director at a Brazilian retail advertising agency specializing in home improvement store (materiais de construção) promotional creatives. The user has generated a creative image using gpt-image-2 and wants to make specific visual adjustments to it via a second generation pass.
 
-Your job: take the user's rough adjustment request (in Brazilian Portuguese, often short and imprecise) and refine it into a PRECISE, DETAILED, WELL-STRUCTURED adjustment prompt that will be injected into a master prompt sent to gpt-image-1.5 for regeneration.
+Your job: take the user's rough adjustment request (in Brazilian Portuguese, often short and imprecise) and refine it into a PRECISE, DETAILED, WELL-STRUCTURED adjustment prompt that will be injected into a master prompt sent to gpt-image-2 for regeneration.
 
 RULES FOR REFINEMENT:
 1. Preserve the user's INTENT exactly. Never change what they want. Never add things they didn't ask for.

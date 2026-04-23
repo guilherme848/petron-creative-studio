@@ -30,6 +30,11 @@ export async function POST(request: Request) {
   const startMs = Date.now();
   const authUser = await getAuthUserOrNull();
 
+  // Modelo da OpenAI — default gpt-image-2 (lançado 21/04/2026).
+  // Override via env var pra reverter pra gpt-image-1.5 sem redeploy caso
+  // a conta ainda esteja em rollout gradual do image-2.
+  const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+
   try {
     const formData = await request.formData();
     const dataRaw = formData.get("data") as string;
@@ -114,7 +119,7 @@ export async function POST(request: Request) {
 
     let imageBuffer: Buffer | null = null;
 
-    // ─── OpenAI gpt-image-1.5 (único modelo) ─────────────────────────
+    // ─── OpenAI gpt-image-2 (default, override via OPENAI_IMAGE_MODEL) ─
     // Quando há imagens reais (logo/produto/referência), usa /v1/images/edits
     // com multipart — aceita múltiplas imagens via image[] e usa como input
     // visual real (logo e foto do produto preservados).
@@ -125,7 +130,7 @@ export async function POST(request: Request) {
 
       if (hasInputImages) {
         const openaiForm = new FormData();
-        openaiForm.append("model", "gpt-image-1.5");
+        openaiForm.append("model", imageModel);
         openaiForm.append("prompt", prompt);
         openaiForm.append("n", "1");
         openaiForm.append("size", "1024x1024");
@@ -158,7 +163,7 @@ export async function POST(request: Request) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-image-1.5",
+            model: imageModel,
             prompt: prompt,
             n: 1,
             size: "1024x1024",
@@ -236,7 +241,7 @@ export async function POST(request: Request) {
         typographyFamily: typographyFamily ?? null,
         waveIndex: typeof styleVariation === "number" ? styleVariation - 1 : null,
         batchMode: !!batchMode,
-        model: "gpt-image-1.5",
+        model: imageModel,
         costUsd: estimateImageCost(hasInputImages),
         durationMs: Date.now() - startMs,
         outcome: "success",
@@ -268,7 +273,7 @@ export async function POST(request: Request) {
       await logUsageEvent({
         userId: authUser.localUserId,
         eventType: "generate_single",
-        model: "gpt-image-1.5",
+        model: imageModel,
         costUsd: 0,
         durationMs: Date.now() - startMs,
         outcome: "error",

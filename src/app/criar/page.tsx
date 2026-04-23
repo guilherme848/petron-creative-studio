@@ -1947,7 +1947,7 @@ export default function CriarPage() {
                         <span className="font-medium text-foreground">{variations.length} de 9 estilos</span> já gerados.
                         {currentWave >= STYLE_WAVES.length
                           ? " Todos os 9 estilos já estão na tela — escolha um pra seguir."
-                          : " Cada geração consome tokens do gpt-image-1.5 — gere apenas se precisar mais opções."}
+                          : " Cada geração consome tokens do gpt-image-2 — gere apenas se precisar mais opções."}
                       </p>
                       <button
                         type="button"
