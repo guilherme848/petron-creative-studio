@@ -30,11 +30,10 @@ export async function POST(request: Request) {
   const startMs = Date.now();
   const authUser = await getAuthUserOrNull();
 
-  // Modelo da OpenAI — snapshot gpt-image-2-2026-04-21.
-  // Uso o snapshot explícito porque o alias "gpt-image-2" ainda está em
-  // rollout gradual pros projetos (23/04/2026), mas o snapshot já está
-  // liberado pra contas verificadas. Override via OPENAI_IMAGE_MODEL.
-  const imageModel = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2-2026-04-21";
+  // Modelo da OpenAI — gpt-image-2 (snapshot 2026-04-21), único modelo.
+  // Snapshot explícito porque o alias "gpt-image-2" ainda tem rollout
+  // gradual por projeto. Sem fallback — 1.5 está proibido daqui pra frente.
+  const imageModel = "gpt-image-2-2026-04-21";
 
   try {
     const formData = await request.formData();
